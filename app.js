@@ -1,24 +1,4 @@
-// ==================== Firebase Config ====================
-// Make sure you included Firebase scripts in your HTML:
-// <script type="module" src="./app.js"></script>
-import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "firebase/firestore";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyBKBFZ26mQOYBs_P8V-yfWZN0yZW0aE1mQ",
-    authDomain: "college-bus-tracking-sys-a565c.firebaseapp.com",
-    projectId: "college-bus-tracking-sys-a565c",
-    storageBucket: "college-bus-tracking-sys-a565c.appspot.com",
-    messagingSenderId: "67601661951",
-    appId: "1:67601661951:web:4b90d4a700c49038d931ca",
-    measurementId: "G-27CHYQZFEZ"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// ==================== Global Variables ====================
+// Initialize variables
 let map;
 let markers = {};
 let userMarker = null;
@@ -27,13 +7,48 @@ let gpsWatchId = null;
 let accuracyCircle = null;
 let isLoggedIn = false;
 let currentUser = null;
+let userLocation = null;
 let userRole = null;
 let trackedBusMarker = null;
 let busData = {};
+let busActivityStatus = { "1": false, "2": false, "3": false, "4": false };
 
-// ==================== Initialize App ====================
+// Firebase imports
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, set, onValue } from "firebase/database";
+
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyBKBFZ26mQOYBs_P8V-yfWZN0yZW0aE1mQ",
+  authDomain: "college-bus-tracking-sys-a565c.firebaseapp.com",
+  databaseURL: "https://college-bus-tracking-sys-a565c-default-rtdb.firebaseio.com",
+  projectId: "college-bus-tracking-sys-a565c",
+  storageBucket: "college-bus-tracking-sys-a565c.appspot.com",
+  messagingSenderId: "67601661951",
+  appId: "1:67601661951:web:4b90d4a700c49038d931ca",
+  measurementId: "G-27CHYQZFEZ"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// Credentials
+const driverCredentials = {
+    "driver1": { password: "pass1", busId: "1", name: "John Smith" },
+    "driver2": { password: "pass2", busId: "2", name: "Maria Garcia" },
+    "driver3": { password: "pass3", busId: "3", name: "Robert Johnson" },
+    "driver4": { password: "pass4", busId: "4", name: "Sarah Wilson" }
+};
+
+const studentCredentials = {
+    "student1": { password: "pass1", name: "Alex Johnson" },
+    "student2": { password: "pass2", name: "Emma Davis" },
+    "student3": { password: "pass3", name: "Michael Brown" }
+};
+
+// Initialize map
 function init() {
-    // Initialize Map
     map = L.map("map").setView([12.9716, 77.5946], 14);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '© OpenStreetMap contributors',
@@ -41,22 +56,24 @@ function init() {
 
     checkGPSAvailability();
     setupEventListeners();
-    loadBusData();
 
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-            pos => {
-                const { latitude, longitude } = pos.coords;
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                userLocation = { lat: latitude, lng: longitude };
                 map.setView([latitude, longitude], 14);
+                document.getElementById('location-permission').style.display = 'none';
             },
-            err => {
-                console.warn("Could not get user location:", err.message);
+            (error) => {
+                console.error(error);
+                userLocation = { lat: 12.9716, lng: 77.5946 };
             }
         );
     }
 }
 
-// ==================== Event Listeners ====================
+// Event listeners
 function setupEventListeners() {
     document.getElementById('driver-login-btn').addEventListener('click', () => {
         document.getElementById('driver-login-modal').style.display = 'flex';
@@ -72,152 +89,77 @@ function setupEventListeners() {
         });
     });
 
-    document.getElementById('cancel-driver-login').addEventListener('click', () => {
-        document.getElementById('driver-login-modal').style.display = 'none';
-    });
-    document.getElementById('cancel-student-login').addEventListener('click', () => {
-        document.getElementById('student-login-modal').style.display = 'none';
-    });
-
     document.getElementById('confirm-driver-login').addEventListener('click', handleDriverLogin);
     document.getElementById('confirm-student-login').addEventListener('click', handleStudentLogin);
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
     document.getElementById('enable-location').addEventListener('click', enableLocation);
-    document.getElementById('zoom-in').addEventListener('click', () => map.zoomIn());
-    document.getElementById('zoom-out').addEventListener('click', () => map.zoomOut());
     document.getElementById('locate-me').addEventListener('click', centerMapOnUser);
     document.getElementById('start-tracking').addEventListener('click', startDriverTracking);
     document.getElementById('stop-tracking').addEventListener('click', stopDriverTracking);
-    document.getElementById('track-bus').addEventListener('click', trackBus);
-    document.getElementById('bus-search').addEventListener('input', filterBusList);
-    document.querySelector('.search-box button').addEventListener('click', filterBusList);
-
-    document.querySelectorAll('.bus-option').forEach(option => {
-        option.addEventListener('click', function () {
-            document.querySelectorAll('.bus-option').forEach(opt => opt.classList.remove('selected'));
-            this.classList.add('selected');
-        });
-    });
+    document.getElementById('track-bus').addEventListener('click', trackBusFirebase);
 }
 
-// ==================== Firebase Bus Functions ====================
-async function sendLocationToServer(busId, latitude, longitude) {
-    try {
-        const busRef = doc(db, "buses", busId);
-        await setDoc(busRef, {
-            lat: latitude,
-            lng: longitude,
-            lastUpdate: new Date().toISOString(),
-            status: "active"
-        }, { merge: true });
-        console.log("Location updated in Firebase for bus", busId);
-    } catch (error) {
-        console.error("Error sending location to Firebase:", error);
-    }
-}
-
-function loadBusData() {
-    const busesCol = collection(db, "buses");
-    onSnapshot(busesCol, (snapshot) => {
-        busData = {};
-        snapshot.forEach(doc => busData[doc.id] = doc.data());
-        updateBusList(busData);
-
-        for (const busId in busData) {
-            const bus = busData[busId];
-            updateBusMarker(busId, bus.lat, bus.lng, bus.status || "inactive");
-        }
-
-        document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
-    }, error => {
-        console.error("Error loading bus data from Firebase:", error);
-        showToast("Using demo data - Firebase not reachable", 2000);
-    });
-}
-
-// ==================== Login/Logout ====================
-async function handleDriverLogin() {
+// Driver login
+function handleDriverLogin() {
     const driverId = document.getElementById('driver-id').value;
     const password = document.getElementById('password').value;
     const selectedBusOption = document.querySelector('#driver-login-modal .bus-option.selected');
 
     if (!driverId || !password || !selectedBusOption) {
-        showToast("Please fill all fields and select a bus");
+        showToast("Fill all fields & select a bus");
         return;
     }
 
-    const busId = selectedBusOption.getAttribute('data-bus-id');
-
-    try {
-        const driverRef = doc(db, "drivers", driverId);
-        const driverSnap = await getDoc(driverRef);
-        if (!driverSnap.exists()) return showToast("Driver ID not found");
-
-        const driverData = driverSnap.data();
-        if (driverData.password !== password) return showToast("Incorrect password");
-        if (driverData.busId !== busId) return showToast("Driver not assigned to this bus");
-
+    if (driverCredentials[driverId] && driverCredentials[driverId].password === password) {
         isLoggedIn = true;
         currentUser = driverId;
         userRole = 'driver';
-        selectedBusId = busId;
-
-        // Update bus driver in Firebase
-        await setDoc(doc(db, "buses", busId), { driver: driverId, status: "active" }, { merge: true });
+        selectedBusId = driverCredentials[driverId].busId;
 
         document.getElementById('user-info').style.display = 'flex';
         document.getElementById('login-buttons').style.display = 'none';
-        document.getElementById('username').textContent = driverData.name;
+        document.getElementById('username').textContent = driverCredentials[driverId].name;
         document.getElementById('driver-controls').style.display = 'flex';
         document.getElementById('student-controls').style.display = 'none';
-        document.getElementById('driver-login-modal').style.display = 'none';
 
-        showToast(`Welcome, ${driverData.name}`);
-    } catch (error) {
-        console.error(error);
-        showToast("Error logging in");
+        document.getElementById('driver-login-modal').style.display = 'none';
+        showToast(`Welcome, ${driverCredentials[driverId].name}`);
+    } else {
+        showToast("Invalid driver ID or password");
     }
 }
 
-async function handleStudentLogin() {
+// Student login
+function handleStudentLogin() {
     const studentId = document.getElementById('student-id').value;
     const password = document.getElementById('student-password').value;
     const selectedBusOption = document.querySelector('#student-login-modal .bus-option.selected');
 
     if (!studentId || !password || !selectedBusOption) {
-        showToast("Please fill all fields and select a bus");
+        showToast("Fill all fields & select a bus");
         return;
     }
 
-    const busId = selectedBusOption.getAttribute('data-bus-id');
-
-    try {
-        const studentRef = doc(db, "students", studentId);
-        const studentSnap = await getDoc(studentRef);
-        if (!studentSnap.exists()) return showToast("Student ID not found");
-
-        const studentData = studentSnap.data();
-        if (studentData.password !== password) return showToast("Incorrect password");
-
+    if (studentCredentials[studentId] && studentCredentials[studentId].password === password) {
         isLoggedIn = true;
         currentUser = studentId;
         userRole = 'student';
-        selectedBusId = busId;
+        selectedBusId = selectedBusOption.getAttribute('data-bus-id');
 
         document.getElementById('user-info').style.display = 'flex';
         document.getElementById('login-buttons').style.display = 'none';
-        document.getElementById('username').textContent = studentData.name;
+        document.getElementById('username').textContent = studentCredentials[studentId].name;
         document.getElementById('driver-controls').style.display = 'none';
         document.getElementById('student-controls').style.display = 'flex';
-        document.getElementById('student-login-modal').style.display = 'none';
 
-        showToast(`Welcome, ${studentData.name}`);
-    } catch (error) {
-        console.error(error);
-        showToast("Error logging in");
+        document.getElementById('student-login-modal').style.display = 'none';
+        showToast(`Welcome, ${studentCredentials[studentId].name}`);
+    } else {
+        showToast("Invalid student ID or password");
     }
 }
 
+// Logout
 function handleLogout() {
     isLoggedIn = false;
     currentUser = null;
@@ -228,127 +170,165 @@ function handleLogout() {
         gpsWatchId = null;
     }
 
-    if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
-    if (accuracyCircle) { map.removeLayer(accuracyCircle); accuracyCircle = null; }
+    if (userMarker) map.removeLayer(userMarker);
+    if (accuracyCircle) map.removeLayer(accuracyCircle);
+    if (trackedBusMarker) map.removeLayer(trackedBusMarker);
 
     document.getElementById('user-info').style.display = 'none';
     document.getElementById('login-buttons').style.display = 'flex';
     document.getElementById('driver-controls').style.display = 'none';
     document.getElementById('student-controls').style.display = 'none';
 
-    showToast("Logged out successfully");
+    showToast("Logged out");
 }
 
-// ==================== Driver GPS Tracking ====================
+// Driver tracking with Firebase
 function startDriverTracking() {
-    if (!navigator.geolocation) return showToast("Geolocation not supported");
+    if (!isLoggedIn || userRole !== 'driver') {
+        showToast("Login as driver first");
+        return;
+    }
 
-    gpsWatchId = navigator.geolocation.watchPosition(
-        pos => {
-            const { latitude, longitude, accuracy } = pos.coords;
-            if (userMarker) userMarker.setLatLng([latitude, longitude]);
-            else userMarker = L.marker([latitude, longitude], { icon: L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize: [32, 32] }) }).addTo(map);
+    const busId = selectedBusId;
+    busActivityStatus[busId] = true;
 
-            if (accuracyCircle) accuracyCircle.setLatLng([latitude, longitude]).setRadius(accuracy);
-            else accuracyCircle = L.circle([latitude, longitude], { radius: accuracy, color: 'blue', fillOpacity: 0.2 }).addTo(map);
+    if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
 
-            sendLocationToServer(selectedBusId, latitude, longitude);
-        },
-        err => showToast("Error accessing location: " + err.message),
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-    );
-    showToast("Started driver GPS tracking");
+    if (navigator.geolocation) {
+        gpsWatchId = navigator.geolocation.watchPosition(
+            (position) => {
+                const { latitude, longitude, accuracy } = position.coords;
+                userLocation = { lat: latitude, lng: longitude };
+
+                // Update Firebase
+                set(ref(db, 'buses/' + busId), {
+                    lat: latitude,
+                    lng: longitude,
+                    status: "active",
+                    timestamp: new Date().toISOString()
+                });
+
+                updateUserPosition(latitude, longitude, accuracy);
+                map.setView([latitude, longitude], 16);
+            },
+            (error) => console.error("Error tracking location", error),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+        );
+    }
+
+    document.getElementById('stop-tracking').style.display = 'block';
+    document.getElementById('start-tracking').style.display = 'none';
+    showToast(`Started tracking Bus ${busId}`);
 }
 
 function stopDriverTracking() {
-    if (gpsWatchId !== null) {
-        navigator.geolocation.clearWatch(gpsWatchId);
-        gpsWatchId = null;
-        showToast("Stopped driver GPS tracking");
+    if (!isLoggedIn || userRole !== 'driver') return;
+
+    const busId = selectedBusId;
+    busActivityStatus[busId] = false;
+
+    if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+
+    if (userMarker) map.removeLayer(userMarker);
+    if (accuracyCircle) map.removeLayer(accuracyCircle);
+
+    document.getElementById('stop-tracking').style.display = 'none';
+    document.getElementById('start-tracking').style.display = 'block';
+
+    showToast("Stopped tracking");
+}
+
+// Student tracks bus via Firebase
+function trackBusFirebase() {
+    if (!isLoggedIn || userRole !== 'student') {
+        showToast("Login as student first");
+        return;
+    }
+
+    const busId = selectedBusId;
+    if (!busId) return showToast("Select a bus first");
+
+    const busRef = ref(db, 'buses/' + busId);
+    onValue(busRef, (snapshot) => {
+        const bus = snapshot.val();
+        if (!bus) return;
+
+        map.setView([bus.lat, bus.lng], 16);
+
+        if (trackedBusMarker) map.removeLayer(trackedBusMarker);
+
+        const trackedBusIcon = L.divIcon({
+            html: '<div class="tracked-bus-marker"><i class="fas fa-bus"></i></div>',
+            className: 'tracked-bus-marker-container',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+        trackedBusMarker = L.marker([bus.lat, bus.lng], { icon: trackedBusIcon })
+            .addTo(map)
+            .bindPopup(`<strong>Tracked Bus ${busId}</strong><br>Status: ${bus.status}`)
+            .openPopup();
+    });
+
+    showToast(`Now tracking Bus ${busId}`);
+}
+
+// Update user marker
+function updateUserPosition(lat, lng, accuracy) {
+    const userIcon = L.divIcon({
+        html: '<div class="user-marker"><i class="fas fa-user"></i></div>',
+        className: 'user-marker-container',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+    });
+
+    if (!userMarker) userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
+    else userMarker.setLatLng([lat, lng]);
+
+    if (!accuracyCircle) {
+        accuracyCircle = L.circle([lat, lng], {
+            radius: accuracy,
+            color: '#3388ff',
+            fillColor: '#3388ff',
+            fillOpacity: 0.2
+        }).addTo(map);
+    } else {
+        accuracyCircle.setLatLng([lat, lng]);
+        accuracyCircle.setRadius(accuracy);
     }
 }
 
-// ==================== Student Bus Tracking ====================
-function trackBus() {
-    if (!selectedBusId || !busData[selectedBusId]) return showToast("Bus data not available");
-
-    const bus = busData[selectedBusId];
-    if (trackedBusMarker) trackedBusMarker.setLatLng([bus.lat, bus.lng]);
-    else trackedBusMarker = L.marker([bus.lat, bus.lng], { icon: L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize: [32, 32] }) }).addTo(map);
-
-    map.setView([bus.lat, bus.lng], 16);
+// Location & GPS helpers
+function enableLocation() {
+    if (!navigator.geolocation) return showToast("Geolocation not supported");
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const { latitude, longitude } = pos.coords;
+            userLocation = { lat: latitude, lng: longitude };
+            map.setView([latitude, longitude], 14);
+            showToast("Location enabled!");
+        },
+        (err) => showToast("Enable location in browser settings")
+    );
 }
 
-// ==================== Helper Functions ====================
-function showToast(msg, duration = 1500) {
+function centerMapOnUser() {
+    if (userLocation) map.setView([userLocation.lat, userLocation.lng], 16);
+    else showToast("Your location not available");
+}
+
+function showToast(msg, duration = 3000) {
     const toast = document.getElementById('toast');
-    document.getElementById('toast-message').textContent = msg;
+    const toastMessage = document.getElementById('toast-message');
+    toastMessage.textContent = msg;
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), duration);
 }
 
-function updateBusMarker(busId, lat, lng, status) {
-    if (!lat || !lng) return;
-    if (markers[busId]) {
-        markers[busId].setLatLng([lat, lng]);
-    } else {
-        markers[busId] = L.marker([lat, lng], { icon: L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize: [32, 32] }) }).addTo(map);
-    }
-}
-
-function updateBusList(busData) {
-    const busListEl = document.getElementById('bus-list');
-    busListEl.innerHTML = "";
-    let total = 0, onTime = 0, delayed = 0;
-
-    for (const busId in busData) {
-        const bus = busData[busId];
-        total++;
-        if (bus.status === 'active') onTime++; else delayed++;
-
-        const busItem = document.createElement('div');
-        busItem.className = 'bus-item';
-        busItem.innerHTML = `
-            <div class="bus-icon"><i class="fas fa-bus"></i></div>
-            <div class="bus-info">
-                <h3>${bus.name || "Bus " + busId}</h3>
-                <p>ID: ${busId}</p>
-            </div>
-            <span class="bus-status ${bus.status === 'active' ? 'status-on-time' : 'status-delayed'}">${bus.status || 'inactive'}</span>
-        `;
-        busListEl.appendChild(busItem);
-    }
-
-    document.getElementById('total-buses').textContent = total;
-    document.getElementById('on-time').textContent = onTime;
-    document.getElementById('delayed').textContent = delayed;
-}
-
-function filterBusList() {
-    const query = document.getElementById('bus-search').value.toLowerCase();
-    document.querySelectorAll('.bus-item').forEach(item => {
-        const name = item.querySelector('h3').textContent.toLowerCase();
-        item.style.display = name.includes(query) ? 'flex' : 'none';
-    });
-}
-
-function enableLocation() {
-    if (navigator.geolocation) navigator.geolocation.getCurrentPosition(pos => map.setView([pos.coords.latitude, pos.coords.longitude], 14));
-}
-
-function centerMapOnUser() {
-    if (userMarker) map.setView(userMarker.getLatLng(), 16);
-}
-
 function checkGPSAvailability() {
-    const gpsIndicator = document.getElementById('gps-indicator');
-    const gpsText = document.getElementById('gps-text');
-    if ("geolocation" in navigator) {
-        gpsIndicator.classList.remove('gps-inactive');
-        gpsIndicator.classList.add('gps-active');
-        gpsText.textContent = "GPS Active";
-    }
+    if (!("geolocation" in navigator)) showToast("GPS not available");
 }
 
-// ==================== Initialize ====================
+// Initialize
 window.onload = init;
