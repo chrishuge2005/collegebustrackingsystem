@@ -335,19 +335,19 @@
             border-radius: 50%;
         }
 
-.user-marker {
-    background-color: #3498db;
-}
+        .user-marker {
+            background-color: #3498db;
+        }
 
-.tracked-bus-marker {
-    background-color: #9b59b6;
-}
+        .tracked-bus-marker {
+            background-color: #9b59b6;
+        }
 
-.bus-marker {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+        .bus-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         
         @keyframes pulse {
             0% { opacity: 1; }
