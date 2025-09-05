@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Tracker with GPS</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <i class="fas fa-bus"></i>
+            <h1>Bus Tracker GPS</h1>
+        </div>
+        <div class="header-info">
+            <div>Last Update: <span id="last-update">--:--:--</span></div>
+            <div>Active Buses: <span id="active-buses">0</span></div>
+        </div>
+        <div id="auth-section">
+            <div class="auth-buttons" id="login-buttons">
+                <button class="auth-btn btn-login" id="driver-login-btn">Driver Login</button>
+                <button class="auth-btn btn-student" id="student-login-btn">Student Login</button>
+            </div>
+            <div class="user-info" id="user-info" style="display: none;">
+                <i class="fas fa-user-circle"></i>
+                <span id="username">User Name</span>
+                <button class="auth-btn btn-logout" id="logout-btn">Logout</button>
+            </div>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="search-box">
+                    <input type="text" placeholder="Search for a bus..." id="bus-search">
+                    <button><i class="fas fa-search"></i></button>
+                </div>
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="total-buses">0</div>
+                        <div class="stat-label">Total Buses</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="on-time">0</div>
+                        <div class="stat-label">On Time</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="delayed">0</div>
+                        <div class="stat-label">Delayed</div>
+                    </div>
+                </div>
+            </div>
+            <div class="bus-list" id="bus-list">
+                <!-- Bus items will be added here dynamically -->
+                <div class="bus-item">
+                    <div class="bus-icon"><i class="fas fa-bus"></i></div>
+                    <div class="bus-info">
+                        <h3>Loading buses...</h3>
+                        <p>Please wait</p>
+                    </div>
+                    <span class="bus-status status-on-time">Loading</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="map-controls">
+                <button class="control-btn" id="zoom-in" title="Zoom In">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button class="control-btn" id="zoom-out" title="Zoom Out">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button class="control-btn" id="locate-me" title="Locate Me">
+                    <i class="fas fa-crosshairs"></i>
+                </button>
+            </div>
+            <div class="gps-status" id="gps-status">
+                <div class="gps-indicator gps-inactive" id="gps-indicator"></div>
+                <span id="gps-text">GPS Inactive</span>
+            </div>
+            <div class="driver-controls" id="driver-controls">
+                <button class="driver-btn btn-start" id="start-tracking">Start Tracking</button>
+                <button class="driver-btn btn-stop" id="stop-tracking">Stop Tracking</button>
+            </div>
+            
+            <div class="student-controls" id="student-controls">
+                <button class="student-btn btn-track" id="track-bus">Track My Bus</button>
+            </div>
+            
+            <div class="location-permission" id="location-permission">
+                <i class="fas fa-map-marker-alt"></i>
+                <h2>Location Access Required</h2>
+                <p>Bus Tracker needs access to your location to show nearby buses and provide accurate tracking.</p>
+                <button class="permission-btn" id="enable-location">Enable Location</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="driver-login-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Driver Login</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="driver-id">Driver ID</label>
+                    <input type="text" id="driver-id" placeholder="Enter your driver ID">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter your password">
+                </div>
+                <p>Select your assigned bus:</p>
+                <div class="bus-options">
+                    <div class="bus-option" data-bus-id="1">
+                        <strong>Campus Shuttle A</strong> (ID: 1)
+                    </div>
+                    <div class="bus-option" data-bus-id="2">
+                        <strong>North Route</strong> (ID: 2)
+                    </div>
+                    <div class="bus-option" data-bus-id="3">
+                        <strong>South Route</strong> (ID: 3)
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn btn-cancel" id="cancel-driver-login">Cancel</button>
+                <button class="modal-btn btn-confirm" id="confirm-driver-login">Login</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="student-login-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Student Login</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="student-id">Student ID</label>
+                    <input type="text" id="student-id" placeholder="Enter your student ID">
+                </div>
+                <div class="form-group">
+                    <label for="student-password">Password</label>
+                    <input type="password" id="student-password" placeholder="Enter your password">
+                </div>
+                <p>Select your bus route:</p>
+                <div class="bus-options">
+                    <div class="bus-option" data-bus-id="1">
+                        <strong>Campus Shuttle A</strong> (ID: 1)
+                    </div>
+                    <div class="bus-option" data-bus-id="2">
+                        <strong>North Route</strong> (ID: 2)
+                    </div>
+                    <div class="bus-option" data-bus-id="3">
+                        <strong>South Route</strong> (ID: 3)
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn btn-cancel" id="cancel-student-login">Cancel</button>
+                <button class="modal-btn btn-confirm" id="confirm-student-login">Login</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast">
+        <i class="fas fa-info-circle"></i>
+        <span id="toast-message"></span>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="./app.js"></script>
+    <!-- Firebase App (the core Firebase SDK)
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script> -->
+
+
+    <!-- Firebase App (core SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+
+</body>
+</html>
