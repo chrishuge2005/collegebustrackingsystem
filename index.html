@@ -3,192 +3,986 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bus Tracker with GPS</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css">
+    <title>College Bus Tracking System</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #f5f5f5;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #1a73e8, #6c5ce7);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo i {
+            font-size: 24px;
+        }
+        
+        .logo h1 {
+            font-size: 22px;
+            font-weight: 600;
+        }
+        
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .gps-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+        
+        .gps-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #4caf50;
+        }
+        
+        .gps-inactive {
+            background-color: #f44336;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background-color: #1a73e8;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0d62c9;
+        }
+        
+        .btn-secondary {
+            background-color: #f1f1f1;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #e1e1e1;
+        }
+        
+        .btn-danger {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #e53935;
+        }
+        
+        .btn-success {
+            background-color: #4caf50;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #45a049;
+        }
+        
+        main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 350px;
+            background-color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 900;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #6c5ce7, #1a73e8);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .search-box input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .search-box button {
+            padding: 10px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .bus-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .bus-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .bus-item:hover {
+            background-color: #eaeaea;
+        }
+        
+        .bus-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #1a73e8;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        
+        .bus-info {
+            flex: 1;
+        }
+        
+        .bus-info h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        
+        .bus-info p {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .bus-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        
+        .status-on-time {
+            background-color: #e6f4ea;
+            color: #137333;
+        }
+        
+        .status-delayed {
+            background-color: #fce8e6;
+            color: #c5221f;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        .map-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 800;
+        }
+        
+        .map-controls button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: white;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        
+        .user-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 800;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 250px;
+        }
+        
+        .user-controls h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .user-controls .btn {
+            width: 100%;
+            margin-top: 5px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h2 {
+            font-size: 20px;
+            color: #333;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .bus-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .bus-option {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .bus-option.selected {
+            border-color: #1a73e8;
+            background-color: #e8f0fe;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 4px;
+            z-index: 10000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        #toast.show {
+            opacity: 1;
+        }
+        
+        footer {
+            background-color: white;
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            border-top: 1px solid #eee;
+        }
+        
+        @media (max-width: 768px) {
+            main {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                max-height: 40vh;
+            }
+            
+            .user-controls {
+                top: 10px;
+                left: 10px;
+                width: calc(100% - 20px);
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
         <div class="logo">
             <i class="fas fa-bus"></i>
-            <h1>Bus Tracker GPS</h1>
+            <h1>College Bus Tracking System</h1>
         </div>
-        <div class="header-info">
-            <div>Last Update: <span id="last-update">--:--:--</span></div>
-            <div>Active Buses: <span id="active-buses">0</span></div>
-        </div>
-        <div id="auth-section">
-            <div class="auth-buttons" id="login-buttons">
-                <button class="auth-btn btn-login" id="driver-login-btn">Driver Login</button>
-                <button class="auth-btn btn-student" id="student-login-btn">Student Login</button>
+        <div class="header-controls">
+            <div class="gps-status">
+                <div class="gps-indicator gps-active" id="gps-indicator"></div>
+                <span id="gps-text">GPS Active</span>
             </div>
-            <div class="user-info" id="user-info" style="display: none;">
-                <i class="fas fa-user-circle"></i>
-                <span id="username">User Name</span>
-                <button class="auth-btn btn-logout" id="logout-btn">Logout</button>
-            </div>
+            <div id="last-update">Last update: 10:45:32 AM</div>
         </div>
     </header>
     
-    <div class="container">
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="search-box">
-                    <input type="text" placeholder="Search for a bus..." id="bus-search">
-                    <button><i class="fas fa-search"></i></button>
+    <main>
+        <aside class="sidebar">
+            <div class="stats-container">
+                <div class="stat-card">
+                    <h3>Total Buses</h3>
+                    <div class="value" id="total-buses">12</div>
                 </div>
-                <div class="stats">
-                    <div class="stat-item">
-                        <div class="stat-value" id="total-buses">0</div>
-                        <div class="stat-label">Total Buses</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="on-time">0</div>
-                        <div class="stat-label">On Time</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="delayed">0</div>
-                        <div class="stat-label">Delayed</div>
-                    </div>
+                <div class="stat-card">
+                    <h3>On Time</h3>
+                    <div class="value" id="on-time">9</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Delayed</h3>
+                    <div class="value" id="delayed">3</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Active</h3>
+                    <div class="value" id="active">10</div>
                 </div>
             </div>
+            
+            <div class="search-box">
+                <input type="text" id="bus-search" placeholder="Search for a bus...">
+                <button><i class="fas fa-search"></i></button>
+            </div>
+            
             <div class="bus-list" id="bus-list">
-                <!-- Bus items will be added here dynamically -->
+                <!-- Bus items will be dynamically added here -->
                 <div class="bus-item">
                     <div class="bus-icon"><i class="fas fa-bus"></i></div>
                     <div class="bus-info">
-                        <h3>Loading buses...</h3>
-                        <p>Please wait</p>
+                        <h3>Bus A1</h3>
+                        <p>Route: Main Campus - North Gate</p>
                     </div>
-                    <span class="bus-status status-on-time">Loading</span>
+                    <span class="bus-status status-on-time">On Time</span>
+                </div>
+                <div class="bus-item">
+                    <div class="bus-icon"><i class="fas fa-bus"></i></div>
+                    <div class="bus-info">
+                        <h3>Bus B2</h3>
+                        <p>Route: East Campus - South Gate</p>
+                    </div>
+                    <span class="bus-status status-delayed">Delayed</span>
+                </div>
+                <div class="bus-item">
+                    <div class="bus-icon"><i class="fas fa-bus"></i></div>
+                    <div class="bus-info">
+                        <h3>Bus C3</h3>
+                        <p>Route: West Campus - Central</p>
+                    </div>
+                    <span class="bus-status status-on-time">On Time</span>
                 </div>
             </div>
-        </div>
+        </aside>
         
         <div class="map-container">
             <div id="map"></div>
+            
             <div class="map-controls">
-                <button class="control-btn" id="zoom-in" title="Zoom In">
-                    <i class="fas fa-plus"></i>
-                </button>
-                <button class="control-btn" id="zoom-out" title="Zoom Out">
-                    <i class="fas fa-minus"></i>
-                </button>
-                <button class="control-btn" id="locate-me" title="Locate Me">
-                    <i class="fas fa-crosshairs"></i>
-                </button>
-            </div>
-            <div class="gps-status" id="gps-status">
-                <div class="gps-indicator gps-inactive" id="gps-indicator"></div>
-                <span id="gps-text">GPS Inactive</span>
-            </div>
-            <div class="driver-controls" id="driver-controls">
-                <button class="driver-btn btn-start" id="start-tracking">Start Tracking</button>
-                <button class="driver-btn btn-stop" id="stop-tracking">Stop Tracking</button>
+                <button id="zoom-in"><i class="fas fa-plus"></i></button>
+                <button id="zoom-out"><i class="fas fa-minus"></i></button>
+                <button id="locate-me"><i class="fas fa-crosshairs"></i></button>
             </div>
             
-            <div class="student-controls" id="student-controls">
-                <button class="student-btn btn-track" id="track-bus">Track My Bus</button>
-            </div>
-            
-            <div class="location-permission" id="location-permission">
-                <i class="fas fa-map-marker-alt"></i>
-                <h2>Location Access Required</h2>
-                <p>Bus Tracker needs access to your location to show nearby buses and provide accurate tracking.</p>
-                <button class="permission-btn" id="enable-location">Enable Location</button>
+            <div class="user-controls">
+                <div id="login-buttons">
+                    <button class="btn btn-primary" id="driver-login-btn">Driver Login</button>
+                    <button class="btn btn-secondary" id="student-login-btn">Student Login</button>
+                </div>
+                
+                <div id="user-info" style="display: none;">
+                    <h3>Welcome, <span id="username">User</span></h3>
+                    <div id="driver-controls" style="display: none;">
+                        <button class="btn btn-success" id="start-tracking">Start Tracking</button>
+                        <button class="btn btn-danger" id="stop-tracking">Stop Tracking</button>
+                    </div>
+                    <div id="student-controls" style="display: none;">
+                        <button class="btn btn-primary" id="track-bus">Track My Bus</button>
+                    </div>
+                    <button class="btn btn-secondary" id="logout-btn">Logout</button>
+                </div>
             </div>
         </div>
-    </div>
+    </main>
     
+    <!-- Driver Login Modal -->
     <div class="modal" id="driver-login-modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Driver Login</h2>
                 <button class="close-modal">&times;</button>
             </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="driver-id">Driver ID</label>
-                    <input type="text" id="driver-id" placeholder="Enter your driver ID">
-                </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Enter your password">
-                </div>
-                <p>Select your assigned bus:</p>
+            <div class="form-group">
+                <label for="driver-id">Driver ID</label>
+                <input type="text" id="driver-id" placeholder="Enter your driver ID">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter your password">
+            </div>
+            <div class="form-group">
+                <label>Select Your Bus</label>
                 <div class="bus-options">
-                    <div class="bus-option" data-bus-id="1">
-                        <strong>Campus Shuttle A</strong> (ID: 1)
-                    </div>
-                    <div class="bus-option" data-bus-id="2">
-                        <strong>North Route</strong> (ID: 2)
-                    </div>
-                    <div class="bus-option" data-bus-id="3">
-                        <strong>South Route</strong> (ID: 3)
-                    </div>
+                    <div class="bus-option selected" data-bus-id="bus-a1">Bus A1</div>
+                    <div class="bus-option" data-bus-id="bus-b2">Bus B2</div>
+                    <div class="bus-option" data-bus-id="bus-c3">Bus C3</div>
+                    <div class="bus-option" data-bus-id="bus-d4">Bus D4</div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="modal-btn btn-cancel" id="cancel-driver-login">Cancel</button>
-                <button class="modal-btn btn-confirm" id="confirm-driver-login">Login</button>
+                <button class="btn btn-secondary" id="cancel-driver-login">Cancel</button>
+                <button class="btn btn-primary" id="confirm-driver-login">Login</button>
             </div>
         </div>
     </div>
     
+    <!-- Student Login Modal -->
     <div class="modal" id="student-login-modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Student Login</h2>
                 <button class="close-modal">&times;</button>
             </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="student-id">Student ID</label>
-                    <input type="text" id="student-id" placeholder="Enter your student ID">
-                </div>
-                <div class="form-group">
-                    <label for="student-password">Password</label>
-                    <input type="password" id="student-password" placeholder="Enter your password">
-                </div>
-                <p>Select your bus route:</p>
+            <div class="form-group">
+                <label for="student-id">Student ID</label>
+                <input type="text" id="student-id" placeholder="Enter your student ID">
+            </div>
+            <div class="form-group">
+                <label for="student-password">Password</label>
+                <input type="password" id="student-password" placeholder="Enter your password">
+            </div>
+            <div class="form-group">
+                <label>Select Your Bus</label>
                 <div class="bus-options">
-                    <div class="bus-option" data-bus-id="1">
-                        <strong>Campus Shuttle A</strong> (ID: 1)
-                    </div>
-                    <div class="bus-option" data-bus-id="2">
-                        <strong>North Route</strong> (ID: 2)
-                    </div>
-                    <div class="bus-option" data-bus-id="3">
-                        <strong>South Route</strong> (ID: 3)
-                    </div>
+                    <div class="bus-option selected" data-bus-id="bus-a1">Bus A1</div>
+                    <div class="bus-option" data-bus-id="bus-b2">Bus B2</div>
+                    <div class="bus-option" data-bus-id="bus-c3">Bus C3</div>
+                    <div class="bus-option" data-bus-id="bus-d4">Bus D4</div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="modal-btn btn-cancel" id="cancel-student-login">Cancel</button>
-                <button class="modal-btn btn-confirm" id="confirm-student-login">Login</button>
+                <button class="btn btn-secondary" id="cancel-student-login">Cancel</button>
+                <button class="btn btn-primary" id="confirm-student-login">Login</button>
             </div>
         </div>
     </div>
     
-    <div class="toast" id="toast">
-        <i class="fas fa-info-circle"></i>
-        <span id="toast-message"></span>
+    <!-- Toast Notification -->
+    <div id="toast">
+        <span id="toast-message">This is a notification message</span>
     </div>
+    
+    <footer>
+        <p>College Bus Tracking System &copy; 2023 | Real-time bus tracking for colleges and universities</p>
+    </footer>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Firebase App and Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <script>
+        // ==================== Firebase Config ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKBFZ26mQOYBs_P8V-yfWZN0yZW0aE1mQ",
+            authDomain: "college-bus-tracking-sys-a565c.firebaseapp.com",
+            projectId: "college-bus-tracking-sys-a565c",
+            storageBucket: "college-bus-tracking-sys-a565c.appspot.com",
+            messagingSenderId: "67601661951",
+            appId: "1:67601661951:web:4b90d4a700c49038d931ca",
+            measurementId: "G-27CHYQZFEZ"
+        };
 
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="./app.js"></script>
-    <!-- Firebase App (the core Firebase SDK)
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script> -->
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
 
+        // ==================== Global Variables ====================
+        let map;
+        let markers = {};
+        let userMarker = null;
+        let selectedBusId = null;
+        let gpsWatchId = null;
+        let accuracyCircle = null;
+        let isLoggedIn = false;
+        let currentUser = null;
+        let userRole = null;
+        let trackedBusMarker = null;
+        let busData = {};
 
-    <!-- Firebase App (core SDK) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <!-- Firebase Firestore -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+        // ==================== Initialize App ====================
+        function init() {
+            // Initialize Map
+            map = L.map("map").setView([12.9716, 77.5946], 14);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                attribution: '© OpenStreetMap contributors',
+            }).addTo(map);
 
+            checkGPSAvailability();
+            setupEventListeners();
+            loadBusData();
 
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => {
+                        const { latitude, longitude } = pos.coords;
+                        map.setView([latitude, longitude], 14);
+                    },
+                    err => {
+                        console.warn("Could not get user location:", err.message);
+                    }
+                );
+            }
+        }
+
+        // ==================== Event Listeners ====================
+        function setupEventListeners() {
+            document.getElementById('driver-login-btn').addEventListener('click', () => {
+                document.getElementById('driver-login-modal').style.display = 'flex';
+            });
+
+            document.getElementById('student-login-btn').addEventListener('click', () => {
+                document.getElementById('student-login-modal').style.display = 'flex';
+            });
+
+            document.querySelectorAll('.close-modal').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.modal').forEach(modal => modal.style.display = 'none');
+                });
+            });
+
+            document.getElementById('cancel-driver-login').addEventListener('click', () => {
+                document.getElementById('driver-login-modal').style.display = 'none';
+            });
+            document.getElementById('cancel-student-login').addEventListener('click', () => {
+                document.getElementById('student-login-modal').style.display = 'none';
+            });
+
+            document.getElementById('confirm-driver-login').addEventListener('click', handleDriverLogin);
+            document.getElementById('confirm-student-login').addEventListener('click', handleStudentLogin);
+            document.getElementById('logout-btn').addEventListener('click', handleLogout);
+            document.getElementById('enable-location').addEventListener('click', enableLocation);
+            document.getElementById('zoom-in').addEventListener('click', () => map.zoomIn());
+            document.getElementById('zoom-out').addEventListener('click', () => map.zoomOut());
+            document.getElementById('locate-me').addEventListener('click', centerMapOnUser);
+            document.getElementById('start-tracking').addEventListener('click', startDriverTracking);
+            document.getElementById('stop-tracking').addEventListener('click', stopDriverTracking);
+            document.getElementById('track-bus').addEventListener('click', trackBus);
+            document.getElementById('bus-search').addEventListener('input', filterBusList);
+            document.querySelector('.search-box button').addEventListener('click', filterBusList);
+
+            document.querySelectorAll('.bus-option').forEach(option => {
+                option.addEventListener('click', function () {
+                    document.querySelectorAll('.bus-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+        }
+
+        // ==================== Firebase Bus Functions ====================
+        async function sendLocationToServer(busId, latitude, longitude) {
+            try {
+                const busRef = db.collection("buses").doc(busId);
+                await busRef.set({
+                    lat: latitude,
+                    lng: longitude,
+                    lastUpdate: new Date().toISOString(),
+                    status: "active"
+                }, { merge: true });
+                console.log("Location updated in Firebase for bus", busId);
+            } catch (error) {
+                console.error("Error sending location to Firebase:", error);
+            }
+        }
+
+        function loadBusData() {
+            db.collection("buses").onSnapshot((snapshot) => {
+                busData = {};
+                snapshot.forEach(doc => busData[doc.id] = doc.data());
+                updateBusList(busData);
+
+                for (const busId in busData) {
+                    const bus = busData[busId];
+                    updateBusMarker(busId, bus.lat, bus.lng, bus.status || "inactive");
+                }
+
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            }, error => {
+                console.error("Error loading bus data from Firebase:", error);
+                showToast("Using demo data - Firebase not reachable", 2000);
+                
+                // Demo data for testing
+                busData = {
+                    "bus-a1": { lat: 12.9716, lng: 77.5946, status: "active", name: "Bus A1" },
+                    "bus-b2": { lat: 12.9686, lng: 77.5876, status: "delayed", name: "Bus B2" },
+                    "bus-c3": { lat: 12.9746, lng: 77.6016, status: "active", name: "Bus C3" }
+                };
+                updateBusList(busData);
+            });
+        }
+
+        // ==================== Login/Logout ====================
+        async function handleDriverLogin() {
+            const driverId = document.getElementById('driver-id').value;
+            const password = document.getElementById('password').value;
+            const selectedBusOption = document.querySelector('#driver-login-modal .bus-option.selected');
+
+            if (!driverId || !password || !selectedBusOption) {
+                showToast("Please fill all fields and select a bus");
+                return;
+            }
+
+            const busId = selectedBusOption.getAttribute('data-bus-id');
+
+            try {
+                const driverRef = db.collection("drivers").doc(driverId);
+                const driverSnap = await driverRef.get();
+                if (!driverSnap.exists) return showToast("Driver ID not found");
+
+                const driverData = driverSnap.data();
+                if (driverData.password !== password) return showToast("Incorrect password");
+                if (driverData.busId !== busId) return showToast("Driver not assigned to this bus");
+
+                isLoggedIn = true;
+                currentUser = driverId;
+                userRole = 'driver';
+                selectedBusId = busId;
+
+                // Update bus driver in Firebase
+                await db.collection("buses").doc(busId).set({ 
+                    driver: driverId, 
+                    status: "active" 
+                }, { merge: true });
+
+                document.getElementById('user-info').style.display = 'flex';
+                document.getElementById('login-buttons').style.display = 'none';
+                document.getElementById('username').textContent = driverData.name;
+                document.getElementById('driver-controls').style.display = 'flex';
+                document.getElementById('student-controls').style.display = 'none';
+                document.getElementById('driver-login-modal').style.display = 'none';
+
+                showToast(`Welcome, ${driverData.name}`);
+            } catch (error) {
+                console.error(error);
+                showToast("Error logging in");
+            }
+        }
+
+        async function handleStudentLogin() {
+            const studentId = document.getElementById('student-id').value;
+            const password = document.getElementById('student-password').value;
+            const selectedBusOption = document.querySelector('#student-login-modal .bus-option.selected');
+
+            if (!studentId || !password || !selectedBusOption) {
+                showToast("Please fill all fields and select a bus");
+                return;
+            }
+
+            const busId = selectedBusOption.getAttribute('data-bus-id');
+
+            try {
+                const studentRef = db.collection("students").doc(studentId);
+                const studentSnap = await studentRef.get();
+                if (!studentSnap.exists) return showToast("Student ID not found");
+
+                const studentData = studentSnap.data();
+                if (studentData.password !== password) return showToast("Incorrect password");
+
+                isLoggedIn = true;
+                currentUser = studentId;
+                userRole = 'student';
+                selectedBusId = busId;
+
+                document.getElementById('user-info').style.display = 'flex';
+                document.getElementById('login-buttons').style.display = 'none';
+                document.getElementById('username').textContent = studentData.name;
+                document.getElementById('driver-controls').style.display = 'none';
+                document.getElementById('student-controls').style.display = 'flex';
+                document.getElementById('student-login-modal').style.display = 'none';
+
+                showToast(`Welcome, ${studentData.name}`);
+            } catch (error) {
+                console.error(error);
+                showToast("Error logging in");
+            }
+        }
+
+        function handleLogout() {
+            isLoggedIn = false;
+            currentUser = null;
+            userRole = null;
+
+            if (gpsWatchId !== null) {
+                navigator.geolocation.clearWatch(gpsWatchId);
+                gpsWatchId = null;
+            }
+
+            if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+            if (accuracyCircle) { map.removeLayer(accuracyCircle); accuracyCircle = null; }
+
+            document.getElementById('user-info').style.display = 'none';
+            document.getElementById('login-buttons').style.display = 'flex';
+            document.getElementById('driver-controls').style.display = 'none';
+            document.getElementById('student-controls').style.display = 'none';
+
+            showToast("Logged out successfully");
+        }
+
+        // ==================== Driver GPS Tracking ====================
+        function startDriverTracking() {
+            if (!navigator.geolocation) return showToast("Geolocation not supported");
+
+            gpsWatchId = navigator.geolocation.watchPosition(
+                pos => {
+                    const { latitude, longitude, accuracy } = pos.coords;
+                    if (userMarker) userMarker.setLatLng([latitude, longitude]);
+                    else userMarker = L.marker([latitude, longitude], { icon: L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize: [32, 32] }) }).addTo(map);
+
+                    if (accuracyCircle) accuracyCircle.setLatLng([latitude, longitude]).setRadius(accuracy);
+                    else accuracyCircle = L.circle([latitude, longitude], { radius: accuracy, color: 'blue', fillOpacity: 0.2 }).addTo(map);
+
+                    sendLocationToServer(selectedBusId, latitude, longitude);
+                },
+                err => showToast("Error accessing location: " + err.message),
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+            );
+            showToast("Started driver GPS tracking");
+        }
+
+        function stopDriverTracking() {
+            if (gpsWatchId !== null) {
+                navigator.geolocation.clearWatch(gpsWatchId);
+                gpsWatchId = null;
+                showToast("Stopped driver GPS tracking");
+            }
+        }
+
+        // ==================== Student Bus Tracking ====================
+        function trackBus() {
+            if (!selectedBusId || !busData[selectedBusId]) return showToast("Bus data not available");
+
+            const bus = busData[selectedBusId];
+            if (trackedBusMarker) trackedBusMarker.setLatLng([bus.lat, bus.lng]);
+            else trackedBusMarker = L.marker([bus.lat, bus.lng], { icon: L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize: [32, 32] }) }).addTo(map);
+
+            map.setView([bus.lat, bus.lng], 16);
+        }
+
+        // ==================== Helper Functions ====================
+        function showToast(msg, duration = 1500) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), duration);
+        }
+
+        function updateBusMarker(busId, lat, lng, status) {
+            if (!lat || !lng) return;
+            if (markers[busId]) {
+                markers[busId].setLatLng([lat, lng]);
+            } else {
+                markers[busId] = L.marker([lat, lng], { icon: L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize: [32, 32] }) }).addTo(map);
+            }
+        }
+
+        function updateBusList(busData) {
+            const busListEl = document.getElementById('bus-list');
+            busListEl.innerHTML = "";
+            let total = 0, onTime = 0, delayed = 0;
+
+            for (const busId in busData) {
+                const bus = busData[busId];
+                total++;
+                if (bus.status === 'active') onTime++; else delayed++;
+
+                const busItem = document.createElement('div');
+                busItem.className = 'bus-item';
+                busItem.innerHTML = `
+                    <div class="bus-icon"><i class="fas fa-bus"></i></div>
+                    <div class="bus-info">
+                        <h3>${bus.name || "Bus " + busId}</h3>
+                        <p>ID: ${busId}</p>
+                    </div>
+                    <span class="bus-status ${bus.status === 'active' ? 'status-on-time' : 'status-delayed'}">${bus.status || 'inactive'}</span>
+                `;
+                busListEl.appendChild(busItem);
+            }
+
+            document.getElementById('total-buses').textContent = total;
+            document.getElementById('on-time').textContent = onTime;
+            document.getElementById('delayed').textContent = delayed;
+            document.getElementById('active').textContent = onTime;
+        }
+
+        function filterBusList() {
+            const query = document.getElementById('bus-search').value.toLowerCase();
+            document.querySelectorAll('.bus-item').forEach(item => {
+                const name = item.querySelector('h3').textContent.toLowerCase();
+                item.style.display = name.includes(query) ? 'flex' : 'none';
+            });
+        }
+
+        function enableLocation() {
+            if (navigator.geolocation) navigator.geolocation.getCurrentPosition(pos => map.setView([pos.coords.latitude, pos.coords.longitude], 14));
+        }
+
+        function centerMapOnUser() {
+            if (userMarker) map.setView(userMarker.getLatLng(), 16);
+        }
+
+        function checkGPSAvailability() {
+            const gpsIndicator = document.getElementById('gps-indicator');
+            const gpsText = document.getElementById('gps-text');
+            if ("geolocation" in navigator) {
+                gpsIndicator.classList.remove('gps-inactive');
+                gpsIndicator.classList.add('gps-active');
+                gpsText.textContent = "GPS Active";
+            }
+        }
+
+        // ==================== Initialize ====================
+        window.onload = init;
+    </script>
 </body>
 </html>
