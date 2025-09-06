@@ -132,7 +132,9 @@ async function sendLocationToServer(busId, latitude, longitude) {
             lat: latitude,
             lng: longitude,
             lastUpdate: new Date().toISOString(),
-            status: "active"
+            status: "active",
+            // Preserve existing data
+            ...busData[busId]
         }, { merge: true });
         
         // Also save to history
@@ -154,7 +156,10 @@ async function sendLocationToServer(busId, latitude, longitude) {
 function loadBusData() {
     db.collection("buses").onSnapshot((snapshot) => {
         busData = {};
-        snapshot.forEach(doc => busData[doc.id] = doc.data());
+        snapshot.forEach(doc => {
+            // Include document ID in the data
+            busData[doc.id] = { id: doc.id, ...doc.data() };
+        });
         updateBusList(busData);
 
         for (const busId in busData) {
@@ -165,7 +170,7 @@ function loadBusData() {
         }
 
         document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
-        updateTrackButtonState(); // Update button state when new data arrives
+        updateTrackButtonState();
     }, error => {
         console.error("Error loading bus data from Firebase:", error);
         showToast("Using demo data - Firebase not reachable", 2000);
@@ -179,12 +184,11 @@ function loadBusData() {
         };
         updateBusList(busData);
         
-        // Create markers for demo data
         for (const busId in busData) {
             const bus = busData[busId];
             updateBusMarker(busId, bus.lat, bus.lng, bus.status || "inactive");
         }
-        updateTrackButtonState(); // Update button state for demo data
+        updateTrackButtonState();
     });
 }
 
@@ -279,7 +283,6 @@ async function handleStudentLogin() {
         userRole = 'student';
         selectedBusId = busId;
 
-        // NEW: Check if the selected bus is in the loaded data
         if (busData[selectedBusId]) {
             showToast(`Welcome, ${studentData.name}. Bus found.`);
         } else {
@@ -287,7 +290,7 @@ async function handleStudentLogin() {
         }
 
         updateUIAfterLogin(studentData.name, 'student');
-        updateTrackButtonState(); // Update the track button state after login
+        updateTrackButtonState();
 
     } catch (error) {
         console.error("Login error:", error);
@@ -338,13 +341,11 @@ function handleLogout() {
     document.getElementById('driver-controls').style.display = 'none';
     document.getElementById('student-controls').style.display = 'none';
     
-    // Remove the tracked bus marker if it exists
     if (trackedBusMarker) {
         map.removeLayer(trackedBusMarker);
         trackedBusMarker = null;
     }
     
-    // Disable the track button after logout
     updateTrackButtonState();
     
     showToast("Logged out successfully");
@@ -482,7 +483,6 @@ function startDriverTracking() {
             
             try {
                 await sendLocationToServer(selectedBusId, latitude, longitude);
-                updateBusMarker(selectedBusId, latitude, longitude, "active");
                 updateGPSStatus("active");
                 
                 if (accuracyCircle) {
@@ -546,40 +546,32 @@ function stopDriverTracking() {
 
 // ==================== Student Functions ====================
 function trackBusHandler() {
-    // 1. Check if a bus is selected
     if (!selectedBusId) {
         showToast("Please select a bus first.");
         return;
     }
     
-    // 2. Check if the bus data for the selected bus has been loaded from Firebase
     const bus = busData[selectedBusId];
     if (!bus) {
         showToast("Data for the selected bus is still loading. Please wait a moment.");
         return;
     }
     
-    // 3. Check if this specific bus has a valid location
     if (bus.lat === undefined || bus.lng === undefined) {
         showToast("The location for " + (bus.name || selectedBusId) + " is not available yet.");
         return;
     }
     
-    // 4. Check if the bus is inactive (optional)
     if (bus.status === "inactive") {
         showToast("Warning: " + (bus.name || selectedBusId) + " is currently inactive.");
-        // You can choose to proceed with tracking or return here.
     }
     
-    // 5. If all checks pass, track the bus!
     map.setView([bus.lat, bus.lng], 15);
     
-    // Remove the old highlighted bus marker if it exists
     if (trackedBusMarker) {
         map.removeLayer(trackedBusMarker);
     }
     
-    // Create a new, special marker for the bus being tracked
     trackedBusMarker = L.marker([bus.lat, bus.lng], {
         icon: L.divIcon({
             className: 'tracked-bus-marker',
@@ -597,11 +589,9 @@ function updateTrackButtonState() {
     if (!trackBusBtn) return;
 
     if (selectedBusId && busData[selectedBusId] && busData[selectedBusId].lat) {
-        // If bus is selected and has location data, enable the button
         trackBusBtn.disabled = false;
         trackBusBtn.title = "Track your selected bus";
     } else {
-        // Otherwise, disable it
         trackBusBtn.disabled = true;
         trackBusBtn.title = "Select a bus and wait for location data...";
     }
