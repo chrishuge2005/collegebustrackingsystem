@@ -175,27 +175,7 @@ async function handleDriverLogin() {
         return;
     }
 
-    // Convert the bus ID from the HTML format to the Firebase format
-    const htmlBusId = selectedBusOption.getAttribute('data-bus-id');
-    let busId;
-    
-    // Map HTML bus IDs to Firebase bus IDs
-    switch(htmlBusId) {
-        case "1":
-            busId = "bus-a1";
-            break;
-        case "2":
-            busId = "bus-a2";
-            break;
-        case "3":
-            busId = "bus-b1";
-            break;
-        case "4":
-            busId = "bus-b2";
-            break;
-        default:
-            busId = htmlBusId;
-    }
+    const busId = selectedBusOption.getAttribute('data-bus-id');
 
     try {
         const driverRef = db.collection("drivers").doc(driverId);
@@ -255,27 +235,7 @@ async function handleStudentLogin() {
         return;
     }
 
-    // Convert the bus ID from the HTML format to the Firebase format
-    const htmlBusId = selectedBusOption.getAttribute('data-bus-id');
-    let busId;
-    
-    // Map HTML bus IDs to Firebase bus IDs
-    switch(htmlBusId) {
-        case "1":
-            busId = "bus-a1";
-            break;
-        case "2":
-            busId = "bus-a2";
-            break;
-        case "3":
-            busId = "bus-b1";
-            break;
-        case "4":
-            busId = "bus-b2";
-            break;
-        default:
-            busId = htmlBusId;
-    }
+    const busId = selectedBusOption.getAttribute('data-bus-id');
 
     try {
         const studentRef = db.collection("students").doc(studentId);
