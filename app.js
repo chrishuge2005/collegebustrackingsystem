@@ -165,6 +165,7 @@ function loadBusData() {
         }
 
         document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+        updateTrackButtonState(); // Update button state when new data arrives
     }, error => {
         console.error("Error loading bus data from Firebase:", error);
         showToast("Using demo data - Firebase not reachable", 2000);
@@ -183,6 +184,7 @@ function loadBusData() {
             const bus = busData[busId];
             updateBusMarker(busId, bus.lat, bus.lng, bus.status || "inactive");
         }
+        updateTrackButtonState(); // Update button state for demo data
     });
 }
 
@@ -277,8 +279,15 @@ async function handleStudentLogin() {
         userRole = 'student';
         selectedBusId = busId;
 
+        // NEW: Check if the selected bus is in the loaded data
+        if (busData[selectedBusId]) {
+            showToast(`Welcome, ${studentData.name}. Bus found.`);
+        } else {
+            showToast(`Welcome, ${studentData.name}. Loading bus data...`);
+        }
+
         updateUIAfterLogin(studentData.name, 'student');
-        showToast(`Welcome, ${studentData.name}`);
+        updateTrackButtonState(); // Update the track button state after login
 
     } catch (error) {
         console.error("Login error:", error);
@@ -328,6 +337,15 @@ function handleLogout() {
     document.getElementById('login-buttons').style.display = 'flex';
     document.getElementById('driver-controls').style.display = 'none';
     document.getElementById('student-controls').style.display = 'none';
+    
+    // Remove the tracked bus marker if it exists
+    if (trackedBusMarker) {
+        map.removeLayer(trackedBusMarker);
+        trackedBusMarker = null;
+    }
+    
+    // Disable the track button after logout
+    updateTrackButtonState();
     
     showToast("Logged out successfully");
 }
@@ -528,28 +546,40 @@ function stopDriverTracking() {
 
 // ==================== Student Functions ====================
 function trackBusHandler() {
+    // 1. Check if a bus is selected
     if (!selectedBusId) {
-        showToast("No bus selected");
+        showToast("Please select a bus first.");
         return;
     }
     
+    // 2. Check if the bus data for the selected bus has been loaded from Firebase
     const bus = busData[selectedBusId];
     if (!bus) {
-        showToast("Selected bus not found");
+        showToast("Data for the selected bus is still loading. Please wait a moment.");
         return;
     }
     
-    if (!bus.lat || !bus.lng) {
-        showToast("Bus location not available");
+    // 3. Check if this specific bus has a valid location
+    if (bus.lat === undefined || bus.lng === undefined) {
+        showToast("The location for " + (bus.name || selectedBusId) + " is not available yet.");
         return;
     }
     
+    // 4. Check if the bus is inactive (optional)
+    if (bus.status === "inactive") {
+        showToast("Warning: " + (bus.name || selectedBusId) + " is currently inactive.");
+        // You can choose to proceed with tracking or return here.
+    }
+    
+    // 5. If all checks pass, track the bus!
     map.setView([bus.lat, bus.lng], 15);
     
+    // Remove the old highlighted bus marker if it exists
     if (trackedBusMarker) {
         map.removeLayer(trackedBusMarker);
     }
     
+    // Create a new, special marker for the bus being tracked
     trackedBusMarker = L.marker([bus.lat, bus.lng], {
         icon: L.divIcon({
             className: 'tracked-bus-marker',
@@ -560,6 +590,21 @@ function trackBusHandler() {
     }).addTo(map).bindPopup(`Tracked Bus: ${bus.name || selectedBusId}`).openPopup();
     
     showToast(`Now tracking ${bus.name || selectedBusId}`);
+}
+
+function updateTrackButtonState() {
+    const trackBusBtn = document.getElementById('track-bus');
+    if (!trackBusBtn) return;
+
+    if (selectedBusId && busData[selectedBusId] && busData[selectedBusId].lat) {
+        // If bus is selected and has location data, enable the button
+        trackBusBtn.disabled = false;
+        trackBusBtn.title = "Track your selected bus";
+    } else {
+        // Otherwise, disable it
+        trackBusBtn.disabled = true;
+        trackBusBtn.title = "Select a bus and wait for location data...";
+    }
 }
 
 // ==================== Bus List Functions ====================
