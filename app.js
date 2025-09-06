@@ -175,7 +175,27 @@ async function handleDriverLogin() {
         return;
     }
 
-    const busId = selectedBusOption.getAttribute('data-bus-id');
+    // Convert the bus ID from the HTML format to the Firebase format
+    const htmlBusId = selectedBusOption.getAttribute('data-bus-id');
+    let busId;
+    
+    // Map HTML bus IDs to Firebase bus IDs
+    switch(htmlBusId) {
+        case "1":
+            busId = "bus-a1";
+            break;
+        case "2":
+            busId = "bus-a2";
+            break;
+        case "3":
+            busId = "bus-b1";
+            break;
+        case "4":
+            busId = "bus-b2";
+            break;
+        default:
+            busId = htmlBusId;
+    }
 
     try {
         const driverRef = db.collection("drivers").doc(driverId);
@@ -235,7 +255,27 @@ async function handleStudentLogin() {
         return;
     }
 
-    const busId = selectedBusOption.getAttribute('data-bus-id');
+    // Convert the bus ID from the HTML format to the Firebase format
+    const htmlBusId = selectedBusOption.getAttribute('data-bus-id');
+    let busId;
+    
+    // Map HTML bus IDs to Firebase bus IDs
+    switch(htmlBusId) {
+        case "1":
+            busId = "bus-a1";
+            break;
+        case "2":
+            busId = "bus-a2";
+            break;
+        case "3":
+            busId = "bus-b1";
+            break;
+        case "4":
+            busId = "bus-b2";
+            break;
+        default:
+            busId = htmlBusId;
+    }
 
     try {
         const studentRef = db.collection("students").doc(studentId);
@@ -608,58 +648,6 @@ function showToast(message, duration = 3000) {
     setTimeout(() => {
         toast.classList.remove('show');
     }, duration);
-}
-
-// ==================== Admin Functions ====================
-async function assignDriverToBus(driverId, busId) {
-    try {
-        const driverRef = db.collection("drivers").doc(driverId);
-        await driverRef.set({
-            busId: busId
-        }, { merge: true });
-        
-        console.log(`Driver ${driverId} assigned to bus ${busId}`);
-        return true;
-    } catch (error) {
-        console.error("Error assigning driver to bus:", error);
-        return false;
-    }
-}
-
-async function getAllDriverAssignments() {
-    try {
-        const driversSnapshot = await db.collection("drivers").get();
-        const assignments = {};
-        
-        driversSnapshot.forEach(doc => {
-            assignments[doc.id] = doc.data().busId;
-        });
-        
-        return assignments;
-    } catch (error) {
-        console.error("Error getting driver assignments:", error);
-        return {};
-    }
-}
-
-async function isBusAssigned(busId) {
-    try {
-        const driversSnapshot = await db.collection("drivers").where("busId", "==", busId).get();
-        return !driversSnapshot.empty;
-    } catch (error) {
-        console.error("Error checking bus assignment:", error);
-        return false;
-    }
-}
-
-async function getDriverById(driverId) {
-    try {
-        const driverDoc = await db.collection("drivers").doc(driverId).get();
-        return driverDoc.exists ? driverDoc.data() : null;
-    } catch (error) {
-        console.error("Error getting driver:", error);
-        return null;
-    }
 }
 
 // Initialize the application
