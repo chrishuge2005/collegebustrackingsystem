@@ -307,6 +307,9 @@ function updateUIAfterLogin(username, role) {
     if (role === 'driver') {
         document.getElementById('driver-controls').style.display = 'flex';
         document.getElementById('student-controls').style.display = 'none';
+        // Show start tracking button, hide stop tracking button
+        document.getElementById('start-tracking').style.display = 'block';
+        document.getElementById('stop-tracking').style.display = 'none';
     } else {
         document.getElementById('driver-controls').style.display = 'none';
         document.getElementById('student-controls').style.display = 'flex';
@@ -500,6 +503,10 @@ function startDriverTracking() {
         navigator.geolocation.clearWatch(gpsWatchId);
     }
     
+    // Hide start button, show stop button
+    document.getElementById('start-tracking').style.display = 'none';
+    document.getElementById('stop-tracking').style.display = 'block';
+    
     // First get the current position immediately
     navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -529,6 +536,9 @@ function startDriverTracking() {
             } catch (error) {
                 console.error("Error updating location:", error);
                 showToast("Error updating location");
+                // Show start button again if error
+                document.getElementById('start-tracking').style.display = 'block';
+                document.getElementById('stop-tracking').style.display = 'none';
             }
             
             // Then start watching for position updates
@@ -574,6 +584,10 @@ function startDriverTracking() {
                         default:
                             showToast("Error getting location");
                     }
+                    
+                    // Show start button again if error
+                    document.getElementById('start-tracking').style.display = 'block';
+                    document.getElementById('stop-tracking').style.display = 'none';
                 },
                 {
                     enableHighAccuracy: true,
@@ -599,6 +613,10 @@ function startDriverTracking() {
                 default:
                     showToast("Error getting location");
             }
+            
+            // Show start button again if error
+            document.getElementById('start-tracking').style.display = 'block';
+            document.getElementById('stop-tracking').style.display = 'none';
         },
         {
             enableHighAccuracy: true,
@@ -621,6 +639,11 @@ function stopDriverTracking() {
     }, { merge: true });
     
     updateGPSStatus("inactive");
+    
+    // Show start button, hide stop button
+    document.getElementById('start-tracking').style.display = 'block';
+    document.getElementById('stop-tracking').style.display = 'none';
+    
     showToast("Stopped tracking your bus");
 }
 
@@ -772,8 +795,10 @@ function filterBusList() {
     const busItems = document.querySelectorAll('.bus-item');
     
     busItems.forEach(item => {
-        const busId = item.getAttribute('data-bus-id');
-        const busName = item.querySelector('h3').textContent.toLowerCase();
+        const busId = item.getAttribute('data-bus-id') || '';
+        const busNameElement = item.querySelector('h3');
+        const busName = busNameElement ? busNameElement.textContent.toLowerCase() : '';
+        
         const shouldShow = busId.includes(searchTerm) || busName.includes(searchTerm);
         item.style.display = shouldShow ? 'flex' : 'none';
     });
