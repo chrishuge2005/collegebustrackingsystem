@@ -249,6 +249,16 @@ header {
     color: #f9a825;
 }
 
+.status-active {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.status-inactive {
+    background-color: #f5f5f5;
+    color: #757575;
+}
+
 .map-container {
     flex: 1;
     position: relative;
@@ -636,6 +646,30 @@ header {
 .permission-btn:hover {
     background-color: #2980b9;
     transform: translateY(-2px);
+}
+
+.emergency-alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #ff4444;
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    z-index: 3000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    max-width: 300px;
+}
+
+.emergency-alert button {
+    background-color: white;
+    color: #ff4444;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    margin-top: 10px;
+    cursor: pointer;
+    font-weight: bold;
 }
 
 @media (max-width: 768px) {

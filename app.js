@@ -623,11 +623,12 @@ function updateBusList(buses) {
                            bus.status === "delayed" ? "status-delayed" : "status-inactive";
         
         busItem.innerHTML = `
+            <div class="bus-icon"><i class="fas fa-bus"></i></div>
             <div class="bus-info">
-                <span class="bus-name">${bus.name || busId}</span>
-                <span class="bus-status ${statusClass}">${bus.status || "inactive"}</span>
+                <h3>${bus.name || busId}</h3>
+                <p>${bus.driverName || "No driver"}</p>
             </div>
-            <div class="bus-driver">${bus.driverName || "No driver"}</div>
+            <span class="bus-status ${statusClass}">${bus.status || "inactive"}</span>
         `;
         
         busList.appendChild(busItem);
@@ -635,7 +636,8 @@ function updateBusList(buses) {
 
     document.getElementById('total-buses').textContent = totalBuses;
     document.getElementById('active-buses').textContent = activeBuses;
-    document.getElementById('delayed-buses').textContent = delayedCount;
+    document.getElementById('on-time').textContent = onTimeCount;
+    document.getElementById('delayed').textContent = delayedCount;
 }
 
 function filterBusList() {
@@ -644,7 +646,7 @@ function filterBusList() {
     
     busItems.forEach(item => {
         const busId = item.getAttribute('data-bus-id');
-        const busName = item.querySelector('.bus-name').textContent.toLowerCase();
+        const busName = item.querySelector('h3').textContent.toLowerCase();
         const shouldShow = busId.includes(searchTerm) || busName.includes(searchTerm);
         item.style.display = shouldShow ? 'flex' : 'none';
     });
@@ -746,29 +748,16 @@ function acknowledgeAlert(alertId) {
 
 // ==================== Utility Functions ====================
 function showToast(message, duration = 3000) {
-    const existingToast = document.getElementById('toast');
-    if (existingToast) {
-        existingToast.remove();
-    }
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toast-message');
     
-    const toast = document.createElement('div');
-    toast.id = 'toast';
-    toast.className = 'toast';
-    toast.textContent = message;
+    if (!toast || !toastMessage) return;
     
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 10);
+    toastMessage.textContent = message;
+    toast.classList.add('show');
     
     setTimeout(() => {
         toast.classList.remove('show');
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
-        }, 300);
     }, duration);
 }
 
