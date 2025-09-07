@@ -312,8 +312,14 @@ function updateUIAfterLogin(username, role) {
     }
     
     document.getElementById(`${role}-login-modal`).style.display = 'none';
-    document.getElementById(`${role}-id`).value = '';
-    document.getElementById(`${role}-password`).value = '';
+    
+    // Fix: Only try to clear fields if they exist
+    const idField = document.getElementById(`${role}-id`);
+    const passwordField = document.getElementById(`${role === 'driver' ? 'password' : 'student-password'}`);
+    
+    if (idField) idField.value = '';
+    if (passwordField) passwordField.value = '';
+    
     document.querySelectorAll('.bus-option').forEach(opt => opt.classList.remove('selected'));
 }
 
@@ -423,7 +429,7 @@ function centerMapOnUser() {
                     showToast("Location information unavailable");
                     break;
                 case error.TIMEOUT:
-                    showToast("Location request timed out");
+                    showToast("Location request timed out. Please check your GPS signal.");
                     break;
                 default:
                     showToast("Unknown error getting location");
@@ -431,8 +437,8 @@ function centerMapOnUser() {
         },
         {
             enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
+            timeout: 10000, // Reduced from 15s to 10s
+            maximumAge: 60000 // Cache location for 1 minute
         }
     );
 }
@@ -440,6 +446,8 @@ function centerMapOnUser() {
 function updateGPSStatus(status) {
     const indicator = document.getElementById('gps-indicator');
     const text = document.getElementById('gps-text');
+    
+    if (!indicator || !text) return;
     
     indicator.className = "gps-indicator";
     
@@ -514,7 +522,7 @@ function startDriverTracking() {
                     showToast("Location information unavailable");
                     break;
                 case error.TIMEOUT:
-                    showToast("Location request timed out");
+                    showToast("Location request timed out. Please check your GPS signal.");
                     break;
                 default:
                     showToast("Error getting location");
@@ -522,7 +530,7 @@ function startDriverTracking() {
         },
         {
             enableHighAccuracy: true,
-            timeout: 15000,
+            timeout: 10000, // Reduced from 15s to 10s
             maximumAge: 0
         }
     );
@@ -600,6 +608,8 @@ function updateTrackButtonState() {
 // ==================== Bus List Functions ====================
 function updateBusList(buses) {
     const busList = document.getElementById('bus-list');
+    if (!busList) return;
+    
     busList.innerHTML = '';
     
     let totalBuses = 0;
@@ -634,10 +644,15 @@ function updateBusList(buses) {
         busList.appendChild(busItem);
     }
 
-    document.getElementById('total-buses').textContent = totalBuses;
-    document.getElementById('active-buses').textContent = activeBuses;
-    document.getElementById('on-time').textContent = onTimeCount;
-    document.getElementById('delayed').textContent = delayedCount;
+    const totalBusesEl = document.getElementById('total-buses');
+    const activeBusesEl = document.getElementById('active-buses');
+    const onTimeEl = document.getElementById('on-time');
+    const delayedEl = document.getElementById('delayed');
+    
+    if (totalBusesEl) totalBusesEl.textContent = totalBuses;
+    if (activeBusesEl) activeBusesEl.textContent = activeBuses;
+    if (onTimeEl) onTimeEl.textContent = onTimeCount;
+    if (delayedEl) delayedEl.textContent = delayedCount;
 }
 
 function filterBusList() {
@@ -751,7 +766,18 @@ function showToast(message, duration = 3000) {
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
     
-    if (!toast || !toastMessage) return;
+    if (!toast || !toastMessage) {
+        // Create a fallback toast if the elements don't exist
+        const fallbackToast = document.createElement('div');
+        fallbackToast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #323232; color: white; padding: 10px 15px; border-radius: 4px; z-index: 10000;';
+        fallbackToast.textContent = message;
+        document.body.appendChild(fallbackToast);
+        
+        setTimeout(() => {
+            document.body.removeChild(fallbackToast);
+        }, duration);
+        return;
+    }
     
     toastMessage.textContent = message;
     toast.classList.add('show');
