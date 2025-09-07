@@ -29,95 +29,108 @@ let busListener = null;
 
 // ==================== Initialize App ====================
 function init() {
-    // Initialize Map
-    map = L.map("map").setView([12.9716, 77.5946], 14);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '© OpenStreetMap contributors',
-    }).addTo(map);
+    try {
+        // Initialize Map
+        map = L.map("map").setView([12.9716, 77.5946], 14);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: '© OpenStreetMap contributors',
+        }).addTo(map);
 
-    checkGPSAvailability();
-    setupEventListeners();
-    loadBusData();
-    setupEmergencyAlertsListener();
+        checkGPSAvailability();
+        setupEventListeners();
+        loadBusData();
+        setupEmergencyAlertsListener();
 
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            pos => {
-                const { latitude, longitude } = pos.coords;
-                map.setView([latitude, longitude], 14);
-            },
-            err => {
-                console.warn("Could not get user location:", err.message);
-            }
-        );
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    const { latitude, longitude } = pos.coords;
+                    map.setView([latitude, longitude], 14);
+                },
+                err => {
+                    console.warn("Could not get user location:", err.message);
+                }
+            );
+        }
+    } catch (error) {
+        console.error("Error initializing app:", error);
+        showToast("Error initializing application. Please refresh the page.");
     }
 }
 
 // ==================== Event Listeners ====================
 function setupEventListeners() {
-    const driverLoginBtn = document.getElementById('driver-login-btn');
-    const studentLoginBtn = document.getElementById('student-login-btn');
-    const closeModalButtons = document.querySelectorAll('.close-modal');
-    const cancelDriverLogin = document.getElementById('cancel-driver-login');
-    const cancelStudentLogin = document.getElementById('cancel-student-login');
-    const confirmDriverLogin = document.getElementById('confirm-driver-login');
-    const confirmStudentLogin = document.getElementById('confirm-student-login');
-    const logoutBtn = document.getElementById('logout-btn');
-    const enableLocation = document.getElementById('enable-location');
-    const zoomIn = document.getElementById('zoom-in');
-    const zoomOut = document.getElementById('zoom-out');
-    const locateMe = document.getElementById('locate-me');
-    const startTracking = document.getElementById('start-tracking');
-    const stopTracking = document.getElementById('stop-tracking');
-    const trackBus = document.getElementById('track-bus');
-    const busSearch = document.getElementById('bus-search');
-    const searchButton = document.querySelector('.search-box button');
-    const busOptions = document.querySelectorAll('.bus-option');
+    try {
+        const driverLoginBtn = document.getElementById('driver-login-btn');
+        const studentLoginBtn = document.getElementById('student-login-btn');
+        const closeModalButtons = document.querySelectorAll('.close-modal');
+        const cancelDriverLogin = document.getElementById('cancel-driver-login');
+        const cancelStudentLogin = document.getElementById('cancel-student-login');
+        const confirmDriverLogin = document.getElementById('confirm-driver-login');
+        const confirmStudentLogin = document.getElementById('confirm-student-login');
+        const logoutBtn = document.getElementById('logout-btn');
+        const enableLocation = document.getElementById('enable-location');
+        const zoomIn = document.getElementById('zoom-in');
+        const zoomOut = document.getElementById('zoom-out');
+        const locateMe = document.getElementById('locate-me');
+        const startTracking = document.getElementById('start-tracking');
+        const stopTracking = document.getElementById('stop-tracking');
+        const trackBus = document.getElementById('track-bus');
+        const busSearch = document.getElementById('bus-search');
+        const searchButton = document.querySelector('.search-box button');
+        const busOptions = document.querySelectorAll('.bus-option');
+        const emergencyAlertBtn = document.getElementById('emergency-alert');
 
-    if (driverLoginBtn) driverLoginBtn.addEventListener('click', () => {
-        document.getElementById('driver-login-modal').style.display = 'flex';
-    });
-
-    if (studentLoginBtn) studentLoginBtn.addEventListener('click', () => {
-        document.getElementById('student-login-modal').style.display = 'flex';
-    });
-
-    if (closeModalButtons.length > 0) {
-        closeModalButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.modal').forEach(modal => modal.style.display = 'none');
-            });
+        if (driverLoginBtn) driverLoginBtn.addEventListener('click', () => {
+            document.getElementById('driver-login-modal').style.display = 'flex';
         });
-    }
 
-    if (cancelDriverLogin) cancelDriverLogin.addEventListener('click', () => {
-        document.getElementById('driver-login-modal').style.display = 'none';
-    });
-    
-    if (cancelStudentLogin) cancelStudentLogin.addEventListener('click', () => {
-        document.getElementById('student-login-modal').style.display = 'none';
-    });
-
-    if (confirmDriverLogin) confirmDriverLogin.addEventListener('click', handleDriverLogin);
-    if (confirmStudentLogin) confirmStudentLogin.addEventListener('click', handleStudentLogin);
-    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
-    if (enableLocation) enableLocation.addEventListener('click', enableLocationHandler);
-    if (zoomIn) zoomIn.addEventListener('click', () => map.zoomIn());
-    if (zoomOut) zoomOut.addEventListener('click', () => map.zoomOut());
-    if (locateMe) locateMe.addEventListener('click', centerMapOnUser);
-    if (startTracking) startTracking.addEventListener('click', startDriverTracking);
-    if (stopTracking) stopTracking.addEventListener('click', stopDriverTracking);
-    if (trackBus) trackBus.addEventListener('click', trackBusHandler);
-    if (busSearch) busSearch.addEventListener('input', filterBusList);
-    if (searchButton) searchButton.addEventListener('click', filterBusList);
-
-    if (busOptions.length > 0) {
-        busOptions.forEach(option => {
-            option.addEventListener('click', function () {
-                document.querySelectorAll('.bus-option').forEach(opt => opt.classList.remove('selected'));
-                this.classList.add('selected');
-            });
+        if (studentLoginBtn) studentLoginBtn.addEventListener('click', () => {
+            document.getElementById('student-login-modal').style.display = 'flex';
         });
+
+        if (closeModalButtons.length > 0) {
+            closeModalButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.modal').forEach(modal => modal.style.display = 'none');
+                });
+            });
+        }
+
+        if (cancelDriverLogin) cancelDriverLogin.addEventListener('click', () => {
+            document.getElementById('driver-login-modal').style.display = 'none';
+        });
+        
+        if (cancelStudentLogin) cancelStudentLogin.addEventListener('click', () => {
+            document.getElementById('student-login-modal').style.display = 'none';
+        });
+
+        if (confirmDriverLogin) confirmDriverLogin.addEventListener('click', handleDriverLogin);
+        if (confirmStudentLogin) confirmStudentLogin.addEventListener('click', handleStudentLogin);
+        if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+        if (enableLocation) enableLocation.addEventListener('click', enableLocationHandler);
+        if (zoomIn) zoomIn.addEventListener('click', () => map.zoomIn());
+        if (zoomOut) zoomOut.addEventListener('click', () => map.zoomOut());
+        if (locateMe) locateMe.addEventListener('click', centerMapOnUser);
+        if (startTracking) startTracking.addEventListener('click', startDriverTracking);
+        if (stopTracking) stopTracking.addEventListener('click', stopDriverTracking);
+        if (trackBus) trackBus.addEventListener('click', trackBusHandler);
+        if (busSearch) busSearch.addEventListener('input', filterBusList);
+        if (searchButton) searchButton.addEventListener('click', filterBusList);
+        if (emergencyAlertBtn) emergencyAlertBtn.addEventListener('click', () => {
+            sendEmergencyAlert(selectedBusId, 'General Emergency');
+        });
+
+        if (busOptions.length > 0) {
+            busOptions.forEach(option => {
+                option.addEventListener('click', function () {
+                    document.querySelectorAll('.bus-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+        }
+    } catch (error) {
+        console.error("Error setting up event listeners:", error);
     }
 }
 
@@ -144,72 +157,79 @@ async function sendLocationToServer(busId, latitude, longitude) {
         });
         
         console.log("Location updated in Firebase for bus", busId);
+        return true;
     } catch (error) {
         console.error("Error sending location to Firebase:", error);
+        showToast("Error updating location. Please check your connection.");
         throw error;
     }
 }
 
 function loadBusData() {
-    if (busListener) busListener(); // Remove previous listener if exists
-    
-    busListener = db.collection("buses").onSnapshot((snapshot) => {
-        busData = {};
-        snapshot.forEach(doc => {
-            // Include document ID in the data
-            busData[doc.id] = { id: doc.id, ...doc.data() };
-        });
-        updateBusList(busData);
+    try {
+        if (busListener) busListener(); // Remove previous listener if exists
+        
+        busListener = db.collection("buses").onSnapshot((snapshot) => {
+            busData = {};
+            snapshot.forEach(doc => {
+                // Include document ID in the data
+                busData[doc.id] = { id: doc.id, ...doc.data() };
+            });
+            updateBusList(busData);
 
-        for (const busId in busData) {
-            const bus = busData[busId];
-            if (bus.lat && bus.lng) {
+            for (const busId in busData) {
+                const bus = busData[busId];
+                if (bus.lat && bus.lng) {
+                    updateBusMarker(busId, bus.lat, bus.lng, bus.status || "inactive");
+                }
+            }
+
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            updateTrackButtonState();
+
+            // If student is tracking a bus, update the map
+            if (userRole === 'student' && selectedBusId && busData[selectedBusId]) {
+                updateTrackedBusOnMap();
+            }
+        }, error => {
+            console.error("Error loading bus data from Firebase:", error);
+            showToast("Using demo data - Firebase not reachable", 2000);
+            
+            // Demo data for testing
+            busData = {
+                "bus-a1": { lat: 12.9716, lng: 77.5946, status: "active", name: "Bus A1" },
+                "bus-a2": { lat: 12.9686, lng: 77.5876, status: "delayed", name: "Bus A2" },
+                "bus-b1": { lat: 12.9746, lng: 77.6016, status: "active", name: "Bus B1" },
+                "bus-b2": { lat: 12.9698, lng: 77.6021, status: "active", name: "Bus B2" }
+            };
+            updateBusList(busData);
+            
+            for (const busId in busData) {
+                const bus = busData[busId];
                 updateBusMarker(busId, bus.lat, bus.lng, bus.status || "inactive");
             }
-        }
-
-        document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
-        updateTrackButtonState();
-
-        // If student is tracking a bus, update the map
-        if (userRole === 'student' && selectedBusId && busData[selectedBusId]) {
-            updateTrackedBusOnMap();
-        }
-    }, error => {
-        console.error("Error loading bus data from Firebase:", error);
-        showToast("Using demo data - Firebase not reachable", 2000);
-        
-        // Demo data for testing
-        busData = {
-            "bus-a1": { lat: 12.9716, lng: 77.5946, status: "active", name: "Bus A1" },
-            "bus-a2": { lat: 12.9686, lng: 77.5876, status: "delayed", name: "Bus A2" },
-            "bus-b1": { lat: 12.9746, lng: 77.6016, status: "active", name: "Bus B1" },
-            "bus-b2": { lat: 12.9698, lng: 77.6021, status: "active", name: "Bus B2" }
-        };
-        updateBusList(busData);
-        
-        for (const busId in busData) {
-            const bus = busData[busId];
-            updateBusMarker(busId, bus.lat, bus.lng, bus.status || "inactive");
-        }
-        updateTrackButtonState();
-    });
+            updateTrackButtonState();
+        });
+    } catch (error) {
+        console.error("Error loading bus data:", error);
+        showToast("Error loading bus data. Please refresh the page.");
+    }
 }
 
 // ==================== Login/Logout ====================
 async function handleDriverLogin() {
-    const driverId = document.getElementById('driver-id').value.trim();
-    const password = document.getElementById('password').value;
-    const selectedBusOption = document.querySelector('#driver-login-modal .bus-option.selected');
-
-    if (!driverId || !password || !selectedBusOption) {
-        showToast("Please fill all fields and select a bus");
-        return;
-    }
-
-    const busId = selectedBusOption.getAttribute('data-bus-id');
-
     try {
+        const driverId = document.getElementById('driver-id').value.trim();
+        const password = document.getElementById('password').value;
+        const selectedBusOption = document.querySelector('#driver-login-modal .bus-option.selected');
+
+        if (!driverId || !password || !selectedBusOption) {
+            showToast("Please fill all fields and select a bus");
+            return;
+        }
+
+        const busId = selectedBusOption.getAttribute('data-bus-id');
+
         const driverRef = db.collection("drivers").doc(driverId);
         const driverSnap = await driverRef.get();
         
@@ -257,18 +277,18 @@ async function handleDriverLogin() {
 }
 
 async function handleStudentLogin() {
-    const studentId = document.getElementById('student-id').value.trim();
-    const password = document.getElementById('student-password').value;
-    const selectedBusOption = document.querySelector('#student-login-modal .bus-option.selected');
-
-    if (!studentId || !password || !selectedBusOption) {
-        showToast("Please fill all fields and select a bus");
-        return;
-    }
-
-    const busId = selectedBusOption.getAttribute('data-bus-id');
-
     try {
+        const studentId = document.getElementById('student-id').value.trim();
+        const password = document.getElementById('student-password').value;
+        const selectedBusOption = document.querySelector('#student-login-modal .bus-option.selected');
+
+        if (!studentId || !password || !selectedBusOption) {
+            showToast("Please fill all fields and select a bus");
+            return;
+        }
+
+        const busId = selectedBusOption.getAttribute('data-bus-id');
+
         const studentRef = db.collection("students").doc(studentId);
         const studentSnap = await studentRef.get();
         if (!studentSnap.exists) {
@@ -300,71 +320,80 @@ async function handleStudentLogin() {
 }
 
 function updateUIAfterLogin(username, role) {
-    document.getElementById('user-info').style.display = 'flex';
-    document.getElementById('login-buttons').style.display = 'none';
-    document.getElementById('username').textContent = username;
-    
-    if (role === 'driver') {
-        document.getElementById('driver-controls').style.display = 'flex';
-        document.getElementById('student-controls').style.display = 'none';
-        // Show start tracking button, hide stop tracking button
-        document.getElementById('start-tracking').style.display = 'block';
-        document.getElementById('stop-tracking').style.display = 'none';
-    } else {
-        document.getElementById('driver-controls').style.display = 'none';
-        document.getElementById('student-controls').style.display = 'flex';
+    try {
+        document.getElementById('user-info').style.display = 'flex';
+        document.getElementById('login-buttons').style.display = 'none';
+        document.getElementById('username').textContent = username;
+        
+        if (role === 'driver') {
+            document.getElementById('driver-controls').style.display = 'flex';
+            document.getElementById('student-controls').style.display = 'none';
+            // Show start tracking button, hide stop tracking button
+            document.getElementById('start-tracking').style.display = 'block';
+            document.getElementById('stop-tracking').style.display = 'none';
+        } else {
+            document.getElementById('driver-controls').style.display = 'none';
+            document.getElementById('student-controls').style.display = 'flex';
+        }
+        
+        document.getElementById(`${role}-login-modal`).style.display = 'none';
+        
+        // Clear login fields
+        const idField = document.getElementById(`${role}-id`);
+        const passwordField = document.getElementById(`${role === 'driver' ? 'password' : 'student-password'}`);
+        
+        if (idField) idField.value = '';
+        if (passwordField) passwordField.value = '';
+        
+        document.querySelectorAll('.bus-option').forEach(opt => opt.classList.remove('selected'));
+    } catch (error) {
+        console.error("Error updating UI after login:", error);
     }
-    
-    document.getElementById(`${role}-login-modal`).style.display = 'none';
-    
-    // Clear login fields
-    const idField = document.getElementById(`${role}-id`);
-    const passwordField = document.getElementById(`${role === 'driver' ? 'password' : 'student-password'}`);
-    
-    if (idField) idField.value = '';
-    if (passwordField) passwordField.value = '';
-    
-    document.querySelectorAll('.bus-option').forEach(opt => opt.classList.remove('selected'));
 }
 
 function handleLogout() {
-    if (userRole === 'driver') {
-        db.collection("buses").doc(selectedBusId).set({ 
-            driver: null, 
-            driverName: null,
-            status: "inactive" 
-        }, { merge: true });
-        
-        if (gpsWatchId !== null) {
-            navigator.geolocation.clearWatch(gpsWatchId);
-            gpsWatchId = null;
+    try {
+        if (userRole === 'driver') {
+            db.collection("buses").doc(selectedBusId).set({ 
+                driver: null, 
+                driverName: null,
+                status: "inactive" 
+            }, { merge: true });
+            
+            if (gpsWatchId !== null) {
+                navigator.geolocation.clearWatch(gpsWatchId);
+                gpsWatchId = null;
+            }
         }
+        
+        // Clean up bus listener
+        if (busListener) {
+            busListener();
+            busListener = null;
+        }
+        
+        isLoggedIn = false;
+        currentUser = null;
+        userRole = null;
+        selectedBusId = null;
+        
+        document.getElementById('user-info').style.display = 'none';
+        document.getElementById('login-buttons').style.display = 'flex';
+        document.getElementById('driver-controls').style.display = 'none';
+        document.getElementById('student-controls').style.display = 'none';
+        
+        if (trackedBusMarker) {
+            map.removeLayer(trackedBusMarker);
+            trackedBusMarker = null;
+        }
+        
+        updateTrackButtonState();
+        
+        showToast("Logged out successfully");
+    } catch (error) {
+        console.error("Error during logout:", error);
+        showToast("Error during logout. Please refresh the page.");
     }
-    
-    // Clean up bus listener
-    if (busListener) {
-        busListener();
-        busListener = null;
-    }
-    
-    isLoggedIn = false;
-    currentUser = null;
-    userRole = null;
-    selectedBusId = null;
-    
-    document.getElementById('user-info').style.display = 'none';
-    document.getElementById('login-buttons').style.display = 'flex';
-    document.getElementById('driver-controls').style.display = 'none';
-    document.getElementById('student-controls').style.display = 'none';
-    
-    if (trackedBusMarker) {
-        map.removeLayer(trackedBusMarker);
-        trackedBusMarker = null;
-    }
-    
-    updateTrackButtonState();
-    
-    showToast("Logged out successfully");
 }
 
 // ==================== GPS & Location Functions ====================
@@ -629,22 +658,27 @@ function startDriverTracking() {
 }
 
 function stopDriverTracking() {
-    if (gpsWatchId !== null) {
-        navigator.geolocation.clearWatch(gpsWatchId);
-        gpsWatchId = null;
+    try {
+        if (gpsWatchId !== null) {
+            navigator.geolocation.clearWatch(gpsWatchId);
+            gpsWatchId = null;
+        }
+        
+        db.collection("buses").doc(selectedBusId).set({ 
+            status: "inactive" 
+        }, { merge: true });
+        
+        updateGPSStatus("inactive");
+        
+        // Show start button, hide stop button
+        document.getElementById('start-tracking').style.display = 'block';
+        document.getElementById('stop-tracking').style.display = 'none';
+        
+        showToast("Stopped tracking your bus");
+    } catch (error) {
+        console.error("Error stopping tracking:", error);
+        showToast("Error stopping tracking");
     }
-    
-    db.collection("buses").doc(selectedBusId).set({ 
-        status: "inactive" 
-    }, { merge: true });
-    
-    updateGPSStatus("inactive");
-    
-    // Show start button, hide stop button
-    document.getElementById('start-tracking').style.display = 'block';
-    document.getElementById('stop-tracking').style.display = 'none';
-    
-    showToast("Stopped tracking your bus");
 }
 
 // ==================== Student Functions ====================
@@ -667,34 +701,42 @@ function setupBusTracking() {
             
             updateTrackButtonState();
         }
+    }, error => {
+        console.error("Error setting up bus tracking:", error);
+        showToast("Error setting up bus tracking");
     });
 }
 
 function updateTrackedBusOnMap() {
-    const bus = busData[selectedBusId];
-    if (!bus || !bus.lat || !bus.lng) {
-        showToast("Bus location not available yet");
-        return;
+    try {
+        const bus = busData[selectedBusId];
+        if (!bus || !bus.lat || !bus.lng) {
+            showToast("Bus location not available yet");
+            return;
+        }
+        
+        // Center map on bus location
+        map.setView([bus.lat, bus.lng], 15);
+        
+        // Update or create tracked bus marker
+        if (trackedBusMarker) {
+            map.removeLayer(trackedBusMarker);
+        }
+        
+        trackedBusMarker = L.marker([bus.lat, bus.lng], {
+            icon: L.divIcon({
+                className: 'tracked-bus-marker',
+                html: '<i class="fas fa-bus"></i>',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            })
+        }).addTo(map).bindPopup(`Tracked Bus: ${bus.name || selectedBusId}`).openPopup();
+        
+        showToast(`Tracking ${bus.name || selectedBusId}`);
+    } catch (error) {
+        console.error("Error updating tracked bus on map:", error);
+        showToast("Error updating bus location on map");
     }
-    
-    // Center map on bus location
-    map.setView([bus.lat, bus.lng], 15);
-    
-    // Update or create tracked bus marker
-    if (trackedBusMarker) {
-        map.removeLayer(trackedBusMarker);
-    }
-    
-    trackedBusMarker = L.marker([bus.lat, bus.lng], {
-        icon: L.divIcon({
-            className: 'tracked-bus-marker',
-            html: '<i class="fas fa-bus"></i>',
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-        })
-    }).addTo(map).bindPopup(`Tracked Bus: ${bus.name || selectedBusId}`).openPopup();
-    
-    showToast(`Tracking ${bus.name || selectedBusId}`);
 }
 
 function trackBusHandler() {
@@ -736,95 +778,113 @@ function updateTrackButtonState() {
 
 // ==================== Bus List Functions ====================
 function updateBusList(buses) {
-    const busList = document.getElementById('bus-list');
-    if (!busList) return;
-    
-    busList.innerHTML = '';
-    
-    let totalBuses = 0;
-    let onTimeCount = 0;
-    let delayedCount = 0;
-    let activeBuses = 0;
+    try {
+        const busList = document.getElementById('bus-list');
+        if (!busList) return;
+        
+        busList.innerHTML = '';
+        
+        let totalBuses = 0;
+        let onTimeCount = 0;
+        let delayedCount = 0;
+        let activeBuses = 0;
 
-    for (const busId in buses) {
-        const bus = buses[busId];
-        totalBuses++;
+        for (const busId in buses) {
+            const bus = buses[busId];
+            totalBuses++;
+            
+            if (bus.status === "active") activeBuses++;
+            if (bus.status === "delayed") delayedCount++;
+            if (bus.status === "active" || !bus.status) onTimeCount++;
+            
+            const busItem = document.createElement('div');
+            busItem.className = 'bus-item';
+            busItem.setAttribute('data-bus-id', busId);
+            busItem.addEventListener('click', () => {
+                if (userRole === 'student') {
+                    // Remove selection from all buses
+                    document.querySelectorAll('.bus-item').forEach(item => {
+                        item.style.borderLeft = '4px solid #3498db';
+                    });
+                    // Highlight selected bus
+                    busItem.style.borderLeft = '4px solid #9b59b6';
+                    selectedBusId = busId;
+                    updateTrackButtonState();
+                }
+            });
+            
+            const statusClass = bus.status === "active" ? "status-active" : 
+                               bus.status === "delayed" ? "status-delayed" : "status-inactive";
+            
+            busItem.innerHTML = `
+                <div class="bus-icon"><i class="fas fa-bus"></i></div>
+                <div class="bus-info">
+                    <h3>${bus.name || busId}</h3>
+                    <p>${bus.driverName || "No driver"}</p>
+                </div>
+                <span class="bus-status ${statusClass}">${bus.status || "inactive"}</span>
+            `;
+            
+            busList.appendChild(busItem);
+        }
+
+        const totalBusesEl = document.getElementById('total-buses');
+        const activeBusesEl = document.getElementById('active-buses');
+        const onTimeEl = document.getElementById('on-time');
+        const delayedEl = document.getElementById('delayed');
         
-        if (bus.status === "active") activeBuses++;
-        if (bus.status === "delayed") delayedCount++;
-        if (bus.status === "active" || !bus.status) onTimeCount++;
-        
-        const busItem = document.createElement('div');
-        busItem.className = 'bus-item';
-        busItem.setAttribute('data-bus-id', busId);
-        busItem.addEventListener('click', () => {
-            if (userRole === 'student') {
-                selectedBusId = busId;
-                updateTrackButtonState();
-            }
-        });
-        
-        const statusClass = bus.status === "active" ? "status-active" : 
-                           bus.status === "delayed" ? "status-delayed" : "status-inactive";
-        
-        busItem.innerHTML = `
-            <div class="bus-icon"><i class="fas fa-bus"></i></div>
-            <div class="bus-info">
-                <h3>${bus.name || busId}</h3>
-                <p>${bus.driverName || "No driver"}</p>
-            </div>
-            <span class="bus-status ${statusClass}">${bus.status || "inactive"}</span>
-        `;
-        
-        busList.appendChild(busItem);
+        if (totalBusesEl) totalBusesEl.textContent = totalBuses;
+        if (activeBusesEl) activeBusesEl.textContent = activeBuses;
+        if (onTimeEl) onTimeEl.textContent = onTimeCount;
+        if (delayedEl) delayedEl.textContent = delayedCount;
+    } catch (error) {
+        console.error("Error updating bus list:", error);
     }
-
-    const totalBusesEl = document.getElementById('total-buses');
-    const activeBusesEl = document.getElementById('active-buses');
-    const onTimeEl = document.getElementById('on-time');
-    const delayedEl = document.getElementById('delayed');
-    
-    if (totalBusesEl) totalBusesEl.textContent = totalBuses;
-    if (activeBusesEl) activeBusesEl.textContent = activeBuses;
-    if (onTimeEl) onTimeEl.textContent = onTimeCount;
-    if (delayedEl) delayedEl.textContent = delayedCount;
 }
 
 function filterBusList() {
-    const searchTerm = document.getElementById('bus-search').value.toLowerCase();
-    const busItems = document.querySelectorAll('.bus-item');
-    
-    busItems.forEach(item => {
-        const busId = item.getAttribute('data-bus-id') || '';
-        const busNameElement = item.querySelector('h3');
-        const busName = busNameElement ? busNameElement.textContent.toLowerCase() : '';
+    try {
+        const searchTerm = document.getElementById('bus-search').value.toLowerCase();
+        const busItems = document.querySelectorAll('.bus-item');
         
-        const shouldShow = busId.includes(searchTerm) || busName.includes(searchTerm);
-        item.style.display = shouldShow ? 'flex' : 'none';
-    });
+        busItems.forEach(item => {
+            const busId = item.getAttribute('data-bus-id') || '';
+            const busNameElement = item.querySelector('h3');
+            const busName = busNameElement ? busNameElement.textContent.toLowerCase() : '';
+            
+            const shouldShow = busId.includes(searchTerm) || busName.includes(searchTerm);
+            item.style.display = shouldShow ? 'flex' : 'none';
+        });
+    } catch (error) {
+        console.error("Error filtering bus list:", error);
+    }
 }
 
 // ==================== Map & Marker Functions ====================
 function updateBusMarker(busId, lat, lng, status) {
-    if (markers[busId]) {
-        map.removeLayer(markers[busId]);
+    try {
+        if (markers[busId]) {
+            map.removeLayer(markers[busId]);
+        }
+        
+        const busIcon = L.divIcon({
+            className: `bus-marker ${status}`,
+            html: `<i class="fas fa-bus"></i>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+        
+        markers[busId] = L.marker([lat, lng], { icon: busIcon })
+            .addTo(map)
+            .bindPopup(`
+                <strong>${busData[busId]?.name || busId}</strong><br>
+                Status: ${status}<br>
+                Driver: ${busData[busId]?.driverName || "Unknown"}<br>
+                Last update: ${new Date().toLocaleTimeString()}
+            `);
+    } catch (error) {
+        console.error("Error updating bus marker:", error);
     }
-    
-    const busIcon = L.divIcon({
-        className: `bus-marker ${status}`,
-        html: `<i class="fas fa-bus"></i>`,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-    });
-    
-    markers[busId] = L.marker([lat, lng], { icon: busIcon })
-        .addTo(map)
-        .bindPopup(`
-            <strong>${busData[busId]?.name || busId}</strong><br>
-            Status: ${status}<br>
-            Driver: ${busData[busId]?.driverName || "Unknown"}<br>
-            Last update: ${new Date().toLocaleTimeString()}
-        `);
 }
 
 // ==================== Emergency Functions ====================
@@ -855,73 +915,92 @@ async function sendEmergencyAlert(busId, alertType) {
 }
 
 function setupEmergencyAlertsListener() {
-    db.collection("emergencyAlerts")
-        .where("status", "==", "active")
-        .onSnapshot((snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                if (change.type === "added") {
-                    const alert = { id: change.doc.id, ...change.doc.data() };
-                    showEmergencyAlert(alert);
-                }
+    try {
+        db.collection("emergencyAlerts")
+            .where("status", "==", "active")
+            .onSnapshot((snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "added") {
+                        const alert = { id: change.doc.id, ...change.doc.data() };
+                        showEmergencyAlert(alert);
+                    }
+                });
+            }, error => {
+                console.error("Error setting up emergency alerts listener:", error);
             });
-        });
+    } catch (error) {
+        console.error("Error setting up emergency alerts:", error);
+    }
 }
 
 function showEmergencyAlert(alert) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'emergency-alert';
-    alertDiv.innerHTML = `
-        <h3>🚨 Emergency Alert</h3>
-        <p>Bus: ${alert.busId}</p>
-        <p>Type: ${alert.alertType}</p>
-        <p>Time: ${new Date(alert.timestamp).toLocaleTimeString()}</p>
-        <button onclick="acknowledgeAlert('${alert.id}')">Acknowledge</button>
-    `;
-    
-    document.body.appendChild(alertDiv);
-    
-    setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.parentNode.removeChild(alertDiv);
-        }
-    }, 30000);
+    try {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'emergency-alert';
+        alertDiv.innerHTML = `
+            <h3>🚨 Emergency Alert</h3>
+            <p>Bus: ${alert.busId}</p>
+            <p>Type: ${alert.alertType}</p>
+            <p>Time: ${new Date(alert.timestamp).toLocaleTimeString()}</p>
+            <button onclick="acknowledgeAlert('${alert.id}')">Acknowledge</button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.parentNode.removeChild(alertDiv);
+            }
+        }, 30000);
+    } catch (error) {
+        console.error("Error showing emergency alert:", error);
+    }
 }
 
 function acknowledgeAlert(alertId) {
-    db.collection("emergencyAlerts").doc(alertId).update({
-        status: "acknowledged"
-    });
-    
-    const alertDiv = document.querySelector('.emergency-alert');
-    if (alertDiv) {
-        alertDiv.remove();
+    try {
+        db.collection("emergencyAlerts").doc(alertId).update({
+            status: "acknowledged"
+        });
+        
+        const alertDiv = document.querySelector('.emergency-alert');
+        if (alertDiv) {
+            alertDiv.remove();
+        }
+    } catch (error) {
+        console.error("Error acknowledging alert:", error);
+        showToast("Error acknowledging alert");
     }
 }
 
 // ==================== Utility Functions ====================
 function showToast(message, duration = 3000) {
-    const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toast-message');
-    
-    if (!toast || !toastMessage) {
-        // Create a fallback toast if the elements don't exist
-        const fallbackToast = document.createElement('div');
-        fallbackToast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #323232; color: white; padding: 10px 15px; border-radius: 4px; z-index: 10000;';
-        fallbackToast.textContent = message;
-        document.body.appendChild(fallbackToast);
+    try {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        
+        if (!toast || !toastMessage) {
+            // Create a fallback toast if the elements don't exist
+            const fallbackToast = document.createElement('div');
+            fallbackToast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #323232; color: white; padding: 10px 15px; border-radius: 4px; z-index: 10000;';
+            fallbackToast.textContent = message;
+            document.body.appendChild(fallbackToast);
+            
+            setTimeout(() => {
+                document.body.removeChild(fallbackToast);
+            }, duration);
+            return;
+        }
+        
+        toastMessage.textContent = message;
+        toast.classList.add('show');
         
         setTimeout(() => {
-            document.body.removeChild(fallbackToast);
+            toast.classList.remove('show');
         }, duration);
-        return;
+    } catch (error) {
+        console.error("Error showing toast:", error);
     }
-    
-    toastMessage.textContent = message;
-    toast.classList.add('show');
-    
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, duration);
 }
 
 // Get bus history for a specific bus
@@ -945,6 +1024,9 @@ async function getBusHistory(busId, limit = 10) {
         return [];
     }
 }
+
+// Make acknowledgeAlert function globally accessible
+window.acknowledgeAlert = acknowledgeAlert;
 
 // ==================== Initialize App ====================
 document.addEventListener('DOMContentLoaded', init);
