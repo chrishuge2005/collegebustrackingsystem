@@ -415,6 +415,14 @@ function centerMapOnUser() {
             map.setView([latitude, longitude], 16);
             
             updateGPSStatus("active");
+            
+            // If driver is tracking, also update the bus location
+            if (userRole === 'driver' && selectedBusId && gpsWatchId !== null) {
+                sendLocationToServer(selectedBusId, latitude, longitude)
+                    .catch(error => {
+                        console.error("Error updating bus location:", error);
+                    });
+            }
         },
         error => {
             console.error("Error getting location:", error);
@@ -437,8 +445,8 @@ function centerMapOnUser() {
         },
         {
             enableHighAccuracy: true,
-            timeout: 10000, // Reduced from 15s to 10s
-            maximumAge: 60000 // Cache location for 1 minute
+            timeout: 10000,
+            maximumAge: 0
         }
     );
 }
@@ -485,7 +493,8 @@ function startDriverTracking() {
         navigator.geolocation.clearWatch(gpsWatchId);
     }
     
-    gpsWatchId = navigator.geolocation.watchPosition(
+    // First get the current position immediately
+    navigator.geolocation.getCurrentPosition(
         async (position) => {
             const { latitude, longitude, accuracy } = position.coords;
             
@@ -505,13 +514,67 @@ function startDriverTracking() {
                     weight: 1
                 }).addTo(map);
                 
+                // Center map on current location
+                map.setView([latitude, longitude], 16);
+                
             } catch (error) {
                 console.error("Error updating location:", error);
                 showToast("Error updating location");
             }
+            
+            // Then start watching for position updates
+            gpsWatchId = navigator.geolocation.watchPosition(
+                async (position) => {
+                    const { latitude, longitude, accuracy } = position.coords;
+                    
+                    try {
+                        await sendLocationToServer(selectedBusId, latitude, longitude);
+                        updateGPSStatus("active");
+                        
+                        if (accuracyCircle) {
+                            map.removeLayer(accuracyCircle);
+                        }
+                        
+                        accuracyCircle = L.circle([latitude, longitude], {
+                            radius: accuracy,
+                            color: '#3498db',
+                            fillColor: '#3498db',
+                            fillOpacity: 0.2,
+                            weight: 1
+                        }).addTo(map);
+                        
+                    } catch (error) {
+                        console.error("Error updating location:", error);
+                        showToast("Error updating location");
+                    }
+                },
+                (error) => {
+                    console.error("Error watching position:", error);
+                    updateGPSStatus("inactive");
+                    
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            showToast("Location access denied. Please enable location permissions.");
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            showToast("Location information unavailable");
+                            break;
+                        case error.TIMEOUT:
+                            showToast("Location request timed out. Please check your GPS signal.");
+                            break;
+                        default:
+                            showToast("Error getting location");
+                    }
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
         },
         (error) => {
-            console.error("Error watching position:", error);
+            console.error("Error getting current position:", error);
             updateGPSStatus("inactive");
             
             switch(error.code) {
@@ -530,7 +593,7 @@ function startDriverTracking() {
         },
         {
             enableHighAccuracy: true,
-            timeout: 10000, // Reduced from 15s to 10s
+            timeout: 10000,
             maximumAge: 0
         }
     );
