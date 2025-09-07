@@ -25,7 +25,6 @@ let currentUser = null;
 let userRole = null;
 let trackedBusMarker = null;
 let busData = {};
-let busListener = null;
 
 // ==================== Initialize App ====================
 function init() {
@@ -73,6 +72,7 @@ function setupEventListeners() {
     const busSearch = document.getElementById('bus-search');
     const searchButton = document.querySelector('.search-box button');
     const busOptions = document.querySelectorAll('.bus-option');
+    const emergencyAlertBtn = document.getElementById('emergency-alert');
 
     if (driverLoginBtn) driverLoginBtn.addEventListener('click', () => {
         document.getElementById('driver-login-modal').style.display = 'flex';
@@ -110,6 +110,9 @@ function setupEventListeners() {
     if (trackBus) trackBus.addEventListener('click', trackBusHandler);
     if (busSearch) busSearch.addEventListener('input', filterBusList);
     if (searchButton) searchButton.addEventListener('click', filterBusList);
+    if (emergencyAlertBtn) emergencyAlertBtn.addEventListener('click', () => {
+        sendEmergencyAlert(selectedBusId, 'General Emergency');
+    });
 
     if (busOptions.length > 0) {
         busOptions.forEach(option => {
@@ -151,9 +154,7 @@ async function sendLocationToServer(busId, latitude, longitude) {
 }
 
 function loadBusData() {
-    if (busListener) busListener(); // Remove previous listener if exists
-    
-    busListener = db.collection("buses").onSnapshot((snapshot) => {
+    db.collection("buses").onSnapshot((snapshot) => {
         busData = {};
         snapshot.forEach(doc => {
             // Include document ID in the data
@@ -170,11 +171,6 @@ function loadBusData() {
 
         document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
         updateTrackButtonState();
-
-        // If student is tracking a bus, update the map
-        if (userRole === 'student' && selectedBusId && busData[selectedBusId]) {
-            updateTrackedBusOnMap();
-        }
     }, error => {
         console.error("Error loading bus data from Firebase:", error);
         showToast("Using demo data - Firebase not reachable", 2000);
@@ -287,11 +283,14 @@ async function handleStudentLogin() {
         userRole = 'student';
         selectedBusId = busId;
 
+        if (busData[selectedBusId]) {
+            showToast(`Welcome, ${studentData.name}. Bus found.`);
+        } else {
+            showToast(`Welcome, ${studentData.name}. Loading bus data...`);
+        }
+
         updateUIAfterLogin(studentData.name, 'student');
         updateTrackButtonState();
-
-        // Start listening for bus updates
-        setupBusTracking();
 
     } catch (error) {
         console.error("Login error:", error);
@@ -314,7 +313,7 @@ function updateUIAfterLogin(username, role) {
     
     document.getElementById(`${role}-login-modal`).style.display = 'none';
     
-    // Clear login fields
+    // Fix: Only try to clear fields if they exist
     const idField = document.getElementById(`${role}-id`);
     const passwordField = document.getElementById(`${role === 'driver' ? 'password' : 'student-password'}`);
     
@@ -336,12 +335,6 @@ function handleLogout() {
             navigator.geolocation.clearWatch(gpsWatchId);
             gpsWatchId = null;
         }
-    }
-    
-    // Clean up bus listener
-    if (busListener) {
-        busListener();
-        busListener = null;
     }
     
     isLoggedIn = false;
@@ -506,11 +499,9 @@ function startDriverTracking() {
             const { latitude, longitude, accuracy } = position.coords;
             
             try {
-                // Send immediate location to server
                 await sendLocationToServer(selectedBusId, latitude, longitude);
                 updateGPSStatus("active");
                 
-                // Update accuracy circle
                 if (accuracyCircle) {
                     map.removeLayer(accuracyCircle);
                 }
@@ -625,39 +616,29 @@ function stopDriverTracking() {
 }
 
 // ==================== Student Functions ====================
-function setupBusTracking() {
-    // Listen for real-time updates on the selected bus
-    if (busListener) busListener();
-    
-    busListener = db.collection("buses").doc(selectedBusId).onSnapshot((doc) => {
-        if (doc.exists) {
-            const bus = doc.data();
-            busData[selectedBusId] = { id: doc.id, ...bus };
-            
-            // Update the bus list
-            updateBusList(busData);
-            
-            // If bus has location, update the map
-            if (bus.lat && bus.lng) {
-                updateTrackedBusOnMap();
-            }
-            
-            updateTrackButtonState();
-        }
-    });
-}
-
-function updateTrackedBusOnMap() {
-    const bus = busData[selectedBusId];
-    if (!bus || !bus.lat || !bus.lng) {
-        showToast("Bus location not available yet");
+function trackBusHandler() {
+    if (!selectedBusId) {
+        showToast("Please select a bus first.");
         return;
     }
     
-    // Center map on bus location
+    const bus = busData[selectedBusId];
+    if (!bus) {
+        showToast("Data for the selected bus is still loading. Please wait a moment.");
+        return;
+    }
+    
+    if (bus.lat === undefined || bus.lng === undefined) {
+        showToast("The location for " + (bus.name || selectedBusId) + " is not available yet.");
+        return;
+    }
+    
+    if (bus.status === "inactive") {
+        showToast("Warning: " + (bus.name || selectedBusId) + " is currently inactive.");
+    }
+    
     map.setView([bus.lat, bus.lng], 15);
     
-    // Update or create tracked bus marker
     if (trackedBusMarker) {
         map.removeLayer(trackedBusMarker);
     }
@@ -671,31 +652,7 @@ function updateTrackedBusOnMap() {
         })
     }).addTo(map).bindPopup(`Tracked Bus: ${bus.name || selectedBusId}`).openPopup();
     
-    showToast(`Tracking ${bus.name || selectedBusId}`);
-}
-
-function trackBusHandler() {
-    if (!selectedBusId) {
-        showToast("Please select a bus first.");
-        return;
-    }
-    
-    const bus = busData[selectedBusId];
-    if (!bus) {
-        showToast("Bus data is still loading. Please wait a moment.");
-        return;
-    }
-    
-    if (bus.lat === undefined || bus.lng === undefined) {
-        showToast("The bus location is not available yet. The driver may not be tracking.");
-        return;
-    }
-    
-    if (bus.status === "inactive") {
-        showToast("Warning: This bus is currently inactive. The driver may not be tracking.");
-    }
-    
-    updateTrackedBusOnMap();
+    showToast(`Now tracking ${bus.name || selectedBusId}`);
 }
 
 function updateTrackButtonState() {
@@ -734,12 +691,6 @@ function updateBusList(buses) {
         const busItem = document.createElement('div');
         busItem.className = 'bus-item';
         busItem.setAttribute('data-bus-id', busId);
-        busItem.addEventListener('click', () => {
-            if (userRole === 'student') {
-                selectedBusId = busId;
-                updateTrackButtonState();
-            }
-        });
         
         const statusClass = bus.status === "active" ? "status-active" : 
                            bus.status === "delayed" ? "status-delayed" : "status-inactive";
