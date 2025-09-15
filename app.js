@@ -209,6 +209,11 @@ function loadBusData() {
                 updateBusMarker(busId, bus.lat, bus.lng, bus.status || "inactive");
             }
             updateTrackButtonState();
+            
+            // If student is tracking a bus, update the map with demo data
+            if (userRole === 'student' && selectedBusId && busData[selectedBusId]) {
+                updateTrackedBusOnMap();
+            }
         });
     } catch (error) {
         console.error("Error loading bus data:", error);
@@ -372,6 +377,12 @@ function handleLogout() {
             busListener = null;
         }
         
+        // Remove tracked bus marker
+        if (trackedBusMarker) {
+            map.removeLayer(trackedBusMarker);
+            trackedBusMarker = null;
+        }
+        
         isLoggedIn = false;
         currentUser = null;
         userRole = null;
@@ -381,11 +392,6 @@ function handleLogout() {
         document.getElementById('login-buttons').style.display = 'flex';
         document.getElementById('driver-controls').style.display = 'none';
         document.getElementById('student-controls').style.display = 'none';
-        
-        if (trackedBusMarker) {
-            map.removeLayer(trackedBusMarker);
-            trackedBusMarker = null;
-        }
         
         updateTrackButtonState();
         
@@ -509,15 +515,17 @@ function updateGPSStatus(status) {
             break;
         case "searching":
             indicator.classList.add("gps-searching");
-            text.textContent = "Searching...";
+            text.textContent = "Searching GPS";
             break;
+        default:
+            indicator.classList.add("gps-inactive");
+            text.textContent = "GPS Unknown";
     }
 }
 
-// ==================== Driver Functions ====================
 function startDriverTracking() {
     if (!selectedBusId) {
-        showToast("No bus selected");
+        showToast("Please select a bus first");
         return;
     }
     
@@ -526,126 +534,47 @@ function startDriverTracking() {
         return;
     }
     
-    updateGPSStatus("searching");
-    
-    if (gpsWatchId !== null) {
-        navigator.geolocation.clearWatch(gpsWatchId);
-    }
-    
-    // Hide start button, show stop button
+    // Update UI
     document.getElementById('start-tracking').style.display = 'none';
     document.getElementById('stop-tracking').style.display = 'block';
     
-    // First get the current position immediately
-    navigator.geolocation.getCurrentPosition(
-        async (position) => {
-            const { latitude, longitude, accuracy } = position.coords;
+    // Start watching position
+    gpsWatchId = navigator.geolocation.watchPosition(
+        position => {
+            const { latitude, longitude } = position.coords;
             
-            try {
-                // Send immediate location to server
-                await sendLocationToServer(selectedBusId, latitude, longitude);
-                updateGPSStatus("active");
-                
-                // Update accuracy circle
-                if (accuracyCircle) {
-                    map.removeLayer(accuracyCircle);
-                }
-                
-                accuracyCircle = L.circle([latitude, longitude], {
-                    radius: accuracy,
-                    color: '#3498db',
-                    fillColor: '#3498db',
-                    fillOpacity: 0.2,
-                    weight: 1
-                }).addTo(map);
-                
-                // Center map on current location
-                map.setView([latitude, longitude], 16);
-                
-            } catch (error) {
-                console.error("Error updating location:", error);
-                showToast("Error updating location");
-                // Show start button again if error
-                document.getElementById('start-tracking').style.display = 'block';
-                document.getElementById('stop-tracking').style.display = 'none';
+            // Update user marker
+            if (userMarker) {
+                map.removeLayer(userMarker);
+                if (accuracyCircle) map.removeLayer(accuracyCircle);
             }
             
-            // Then start watching for position updates
-            gpsWatchId = navigator.geolocation.watchPosition(
-                async (position) => {
-                    const { latitude, longitude, accuracy } = position.coords;
-                    
-                    try {
-                        await sendLocationToServer(selectedBusId, latitude, longitude);
-                        updateGPSStatus("active");
-                        
-                        if (accuracyCircle) {
-                            map.removeLayer(accuracyCircle);
-                        }
-                        
-                        accuracyCircle = L.circle([latitude, longitude], {
-                            radius: accuracy,
-                            color: '#3498db',
-                            fillColor: '#3498db',
-                            fillOpacity: 0.2,
-                            weight: 1
-                        }).addTo(map);
-                        
-                    } catch (error) {
-                        console.error("Error updating location:", error);
-                        showToast("Error updating location");
-                    }
-                },
-                (error) => {
-                    console.error("Error watching position:", error);
-                    updateGPSStatus("inactive");
-                    
-                    switch(error.code) {
-                        case error.PERMISSION_DENIED:
-                            showToast("Location access denied. Please enable location permissions.");
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            showToast("Location information unavailable");
-                            break;
-                        case error.TIMEOUT:
-                            showToast("Location request timed out. Please check your GPS signal.");
-                            break;
-                        default:
-                            showToast("Error getting location");
-                    }
-                    
-                    // Show start button again if error
-                    document.getElementById('start-tracking').style.display = 'block';
-                    document.getElementById('stop-tracking').style.display = 'none';
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
-            );
+            userMarker = L.marker([latitude, longitude], {
+                icon: L.divIcon({
+                    className: 'user-marker',
+                    html: '<i class="fas fa-user"></i>',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                })
+            }).addTo(map).bindPopup("Your Location (Bus)").openPopup();
+            
+            accuracyCircle = L.circle([latitude, longitude], {
+                radius: position.coords.accuracy,
+                color: '#3498db',
+                fillColor: '#3498db',
+                fillOpacity: 0.2,
+                weight: 1
+            }).addTo(map);
+            
+            // Send location to server
+            sendLocationToServer(selectedBusId, latitude, longitude)
+                .catch(error => {
+                    console.error("Error updating bus location:", error);
+                });
         },
-        (error) => {
-            console.error("Error getting current position:", error);
-            updateGPSStatus("inactive");
-            
-            switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    showToast("Location access denied. Please enable location permissions.");
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    showToast("Location information unavailable");
-                    break;
-                case error.TIMEOUT:
-                    showToast("Location request timed out. Please check your GPS signal.");
-                    break;
-                default:
-                    showToast("Error getting location");
-            }
-            
-            // Show start button again if error
-            document.getElementById('start-tracking').style.display = 'block';
-            document.getElementById('stop-tracking').style.display = 'none';
+        error => {
+            console.error("Error watching position:", error);
+            showToast("Error tracking location. Please check your GPS.");
         },
         {
             enableHighAccuracy: true,
@@ -654,379 +583,303 @@ function startDriverTracking() {
         }
     );
     
-    showToast("Started tracking your bus");
+    showToast("Started tracking your bus location");
 }
 
 function stopDriverTracking() {
-    try {
-        if (gpsWatchId !== null) {
-            navigator.geolocation.clearWatch(gpsWatchId);
-            gpsWatchId = null;
-        }
-        
-        db.collection("buses").doc(selectedBusId).set({ 
-            status: "inactive" 
-        }, { merge: true });
-        
-        updateGPSStatus("inactive");
-        
-        // Show start button, hide stop button
-        document.getElementById('start-tracking').style.display = 'block';
-        document.getElementById('stop-tracking').style.display = 'none';
-        
-        showToast("Stopped tracking your bus");
-    } catch (error) {
-        console.error("Error stopping tracking:", error);
-        showToast("Error stopping tracking");
+    if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
     }
+    
+    // Update UI
+    document.getElementById('start-tracking').style.display = 'block';
+    document.getElementById('stop-tracking').style.display = 'none';
+    
+    // Update bus status to inactive
+    db.collection("buses").doc(selectedBusId).set({
+        status: "inactive",
+        lastUpdate: new Date().toISOString()
+    }, { merge: true });
+    
+    showToast("Stopped tracking your bus location");
 }
 
-// ==================== Student Functions ====================
+// ==================== Student Tracking Functions ====================
 function setupBusTracking() {
-    // Listen for real-time updates on the selected bus
-    if (busListener) busListener();
+    if (!selectedBusId) return;
     
-    busListener = db.collection("buses").doc(selectedBusId).onSnapshot((doc) => {
+    // Listen for updates to the selected bus
+    db.collection("buses").doc(selectedBusId).onSnapshot(doc => {
         if (doc.exists) {
             const bus = doc.data();
-            busData[selectedBusId] = { id: doc.id, ...bus };
-            
-            // Update the bus list
-            updateBusList(busData);
-            
-            // If bus has location, update the map
             if (bus.lat && bus.lng) {
                 updateTrackedBusOnMap();
             }
-            
-            updateTrackButtonState();
         }
     }, error => {
-        console.error("Error setting up bus tracking:", error);
-        showToast("Error setting up bus tracking");
+        console.error("Error listening to bus updates:", error);
     });
 }
 
 function updateTrackedBusOnMap() {
-    try {
-        const bus = busData[selectedBusId];
-        if (!bus || !bus.lat || !bus.lng) {
-            showToast("Bus location not available yet");
-            return;
-        }
-        
-        // Center map on bus location
-        map.setView([bus.lat, bus.lng], 15);
-        
-        // Update or create tracked bus marker
-        if (trackedBusMarker) {
-            map.removeLayer(trackedBusMarker);
-        }
-        
-        trackedBusMarker = L.marker([bus.lat, bus.lng], {
-            icon: L.divIcon({
-                className: 'tracked-bus-marker',
-                html: '<i class="fas fa-bus"></i>',
-                iconSize: [30, 30],
-                iconAnchor: [15, 15]
-            })
-        }).addTo(map).bindPopup(`Tracked Bus: ${bus.name || selectedBusId}`).openPopup();
-        
-        showToast(`Tracking ${bus.name || selectedBusId}`);
-    } catch (error) {
-        console.error("Error updating tracked bus on map:", error);
-        showToast("Error updating bus location on map");
+    if (!selectedBusId || !busData[selectedBusId]) return;
+    
+    const bus = busData[selectedBusId];
+    
+    // Remove previous tracked bus marker
+    if (trackedBusMarker) {
+        map.removeLayer(trackedBusMarker);
     }
+    
+    // Create new marker for tracked bus
+    trackedBusMarker = L.marker([bus.lat, bus.lng], {
+        icon: L.divIcon({
+            className: 'bus-marker tracked',
+            html: '<i class="fas fa-bus"></i>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        })
+    }).addTo(map).bindPopup(`Tracked Bus: ${bus.name || selectedBusId}`).openPopup();
+    
+    // Center map on tracked bus if it's far away
+    const currentCenter = map.getCenter();
+    const busLatLng = L.latLng(bus.lat, bus.lng);
+    
+    if (map.distance(currentCenter, busLatLng) > 5000) { // More than 5km away
+        map.setView([bus.lat, bus.lng], 14);
+    }
+    
+    // Update bus info panel
+    updateBusInfoPanel(bus);
+}
+
+function updateBusInfoPanel(bus) {
+    const infoPanel = document.getElementById('bus-info');
+    if (!infoPanel) return;
+    
+    infoPanel.innerHTML = `
+        <h3>${bus.name || selectedBusId}</h3>
+        <p><strong>Status:</strong> <span class="status-${bus.status || 'inactive'}">${bus.status || 'Inactive'}</span></p>
+        <p><strong>Driver:</strong> ${bus.driverName || 'Not assigned'}</p>
+        <p><strong>Last Update:</strong> ${bus.lastUpdate ? new Date(bus.lastUpdate).toLocaleTimeString() : 'Unknown'}</p>
+    `;
 }
 
 function trackBusHandler() {
     if (!selectedBusId) {
-        showToast("Please select a bus first.");
+        showToast("Please select a bus to track");
         return;
     }
     
-    const bus = busData[selectedBusId];
-    if (!bus) {
-        showToast("Bus data is still loading. Please wait a moment.");
+    if (!busData[selectedBusId] || !busData[selectedBusId].lat) {
+        showToast("Selected bus location data not available");
         return;
-    }
-    
-    if (bus.lat === undefined || bus.lng === undefined) {
-        showToast("The bus location is not available yet. The driver may not be tracking.");
-        return;
-    }
-    
-    if (bus.status === "inactive") {
-        showToast("Warning: This bus is currently inactive. The driver may not be tracking.");
     }
     
     updateTrackedBusOnMap();
+    showToast(`Now tracking ${busData[selectedBusId].name || selectedBusId}`);
 }
 
-function updateTrackButtonState() {
-    const trackBusBtn = document.getElementById('track-bus');
-    if (!trackBusBtn) return;
-
-    if (selectedBusId && busData[selectedBusId] && busData[selectedBusId].lat) {
-        trackBusBtn.disabled = false;
-        trackBusBtn.title = "Track your selected bus";
-    } else {
-        trackBusBtn.disabled = true;
-        trackBusBtn.title = "Select a bus and wait for location data...";
-    }
-}
-
-// ==================== Bus List Functions ====================
+// ==================== UI Helper Functions ====================
 function updateBusList(buses) {
-    try {
-        const busList = document.getElementById('bus-list');
-        if (!busList) return;
+    const busListContainer = document.getElementById('bus-list');
+    if (!busListContainer) return;
+    
+    let html = '';
+    
+    for (const busId in buses) {
+        const bus = buses[busId];
+        const statusClass = `status-${bus.status || 'inactive'}`;
         
-        busList.innerHTML = '';
-        
-        let totalBuses = 0;
-        let onTimeCount = 0;
-        let delayedCount = 0;
-        let activeBuses = 0;
-
-        for (const busId in buses) {
-            const bus = buses[busId];
-            totalBuses++;
-            
-            if (bus.status === "active") activeBuses++;
-            if (bus.status === "delayed") delayedCount++;
-            if (bus.status === "active" || !bus.status) onTimeCount++;
-            
-            const busItem = document.createElement('div');
-            busItem.className = 'bus-item';
-            busItem.setAttribute('data-bus-id', busId);
-            busItem.addEventListener('click', () => {
-                if (userRole === 'student') {
-                    // Remove selection from all buses
-                    document.querySelectorAll('.bus-item').forEach(item => {
-                        item.style.borderLeft = '4px solid #3498db';
-                    });
-                    // Highlight selected bus
-                    busItem.style.borderLeft = '4px solid #9b59b6';
-                    selectedBusId = busId;
-                    updateTrackButtonState();
-                }
-            });
-            
-            const statusClass = bus.status === "active" ? "status-active" : 
-                               bus.status === "delayed" ? "status-delayed" : "status-inactive";
-            
-            busItem.innerHTML = `
-                <div class="bus-icon"><i class="fas fa-bus"></i></div>
+        html += `
+            <div class="bus-option" data-bus-id="${busId}">
                 <div class="bus-info">
-                    <h3>${bus.name || busId}</h3>
-                    <p>${bus.driverName || "No driver"}</p>
+                    <h4>${bus.name || busId}</h4>
+                    <p class="bus-status ${statusClass}">${bus.status || 'Inactive'}</p>
                 </div>
-                <span class="bus-status ${statusClass}">${bus.status || "inactive"}</span>
-            `;
-            
-            busList.appendChild(busItem);
-        }
-
-        const totalBusesEl = document.getElementById('total-buses');
-        const activeBusesEl = document.getElementById('active-buses');
-        const onTimeEl = document.getElementById('on-time');
-        const delayedEl = document.getElementById('delayed');
-        
-        if (totalBusesEl) totalBusesEl.textContent = totalBuses;
-        if (activeBusesEl) activeBusesEl.textContent = activeBuses;
-        if (onTimeEl) onTimeEl.textContent = onTimeCount;
-        if (delayedEl) delayedEl.textContent = delayedCount;
-    } catch (error) {
-        console.error("Error updating bus list:", error);
+                <div class="bus-driver">${bus.driverName || 'No driver'}</div>
+            </div>
+        `;
     }
+    
+    busListContainer.innerHTML = html;
+    
+    // Add event listeners to new bus options
+    document.querySelectorAll('.bus-option').forEach(option => {
+        option.addEventListener('click', function() {
+            document.querySelectorAll('.bus-option').forEach(opt => opt.classList.remove('selected'));
+            this.classList.add('selected');
+            selectedBusId = this.getAttribute('data-bus-id');
+            updateTrackButtonState();
+        });
+    });
 }
 
 function filterBusList() {
-    try {
-        const searchTerm = document.getElementById('bus-search').value.toLowerCase();
-        const busItems = document.querySelectorAll('.bus-item');
+    const searchTerm = document.getElementById('bus-search').value.toLowerCase();
+    const busOptions = document.querySelectorAll('.bus-option');
+    
+    busOptions.forEach(option => {
+        const busName = option.querySelector('h4').textContent.toLowerCase();
+        const busId = option.getAttribute('data-bus-id').toLowerCase();
         
-        busItems.forEach(item => {
-            const busId = item.getAttribute('data-bus-id') || '';
-            const busNameElement = item.querySelector('h3');
-            const busName = busNameElement ? busNameElement.textContent.toLowerCase() : '';
-            
-            const shouldShow = busId.includes(searchTerm) || busName.includes(searchTerm);
-            item.style.display = shouldShow ? 'flex' : 'none';
-        });
-    } catch (error) {
-        console.error("Error filtering bus list:", error);
-    }
-}
-
-// ==================== Map & Marker Functions ====================
-function updateBusMarker(busId, lat, lng, status) {
-    try {
-        if (markers[busId]) {
-            map.removeLayer(markers[busId]);
+        if (busName.includes(searchTerm) || busId.includes(searchTerm)) {
+            option.style.display = 'flex';
+        } else {
+            option.style.display = 'none';
         }
-        
-        const busIcon = L.divIcon({
-            className: `bus-marker ${status}`,
-            html: `<i class="fas fa-bus"></i>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-        });
-        
-        markers[busId] = L.marker([lat, lng], { icon: busIcon })
-            .addTo(map)
-            .bindPopup(`
-                <strong>${busData[busId]?.name || busId}</strong><br>
-                Status: ${status}<br>
-                Driver: ${busData[busId]?.driverName || "Unknown"}<br>
-                Last update: ${new Date().toLocaleTimeString()}
-            `);
-    } catch (error) {
-        console.error("Error updating bus marker:", error);
+    });
+}
+
+function updateTrackButtonState() {
+    const trackButton = document.getElementById('track-bus');
+    if (!trackButton) return;
+    
+    if (userRole === 'student' && selectedBusId) {
+        trackButton.disabled = false;
+        trackButton.classList.remove('disabled');
+    } else {
+        trackButton.disabled = true;
+        trackButton.classList.add('disabled');
     }
 }
 
-// ==================== Emergency Functions ====================
-async function sendEmergencyAlert(busId, alertType) {
-    if (!busId) {
-        showToast("No bus selected");
-        return;
+function updateBusMarker(busId, lat, lng, status) {
+    // Remove existing marker if it exists
+    if (markers[busId]) {
+        map.removeLayer(markers[busId]);
     }
     
-    try {
-        const alertRef = db.collection("emergencyAlerts").doc();
-        await alertRef.set({
-            busId: busId,
-            alertType: alertType,
-            timestamp: new Date().toISOString(),
-            status: "active",
-            location: busData[busId] ? {
-                lat: busData[busId].lat,
-                lng: busData[busId].lng
-            } : null
-        });
-        
-        showToast("Emergency alert sent!");
-    } catch (error) {
-        console.error("Error sending emergency alert:", error);
-        showToast("Error sending alert");
+    // Create new marker
+    const marker = L.marker([lat, lng], {
+        icon: L.divIcon({
+            className: `bus-marker ${status}`,
+            html: '<i class="fas fa-bus"></i>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        })
+    }).addTo(map);
+    
+    // Add popup with bus info
+    const bus = busData[busId] || {};
+    marker.bindPopup(`
+        <strong>${bus.name || busId}</strong><br>
+        Status: ${status}<br>
+        Driver: ${bus.driverName || 'Not assigned'}<br>
+        Last Update: ${bus.lastUpdate ? new Date(bus.lastUpdate).toLocaleTimeString() : 'Unknown'}
+    `);
+    
+    // Store marker reference
+    markers[busId] = marker;
+}
+
+function showToast(message, duration = 3000) {
+    // Remove existing toast if any
+    const existingToast = document.getElementById('toast');
+    if (existingToast) {
+        existingToast.remove();
     }
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.className = 'toast';
+    toast.textContent = message;
+    
+    // Add to document
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    
+    // Remove after duration
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, duration);
 }
 
 function setupEmergencyAlertsListener() {
-    try {
-        db.collection("emergencyAlerts")
-            .where("status", "==", "active")
-            .onSnapshot((snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    if (change.type === "added") {
-                        const alert = { id: change.doc.id, ...change.doc.data() };
-                        showEmergencyAlert(alert);
-                    }
-                });
-            }, error => {
-                console.error("Error setting up emergency alerts listener:", error);
-            });
-    } catch (error) {
-        console.error("Error setting up emergency alerts:", error);
+    db.collection("emergencyAlerts").orderBy("timestamp", "desc").limit(5).onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(change => {
+            if (change.type === "added") {
+                const alert = change.doc.data();
+                showEmergencyAlert(alert);
+            }
+        });
+    });
+}
+
+function sendEmergencyAlert(busId, alertType) {
+    if (!busId) {
+        showToast("Please select a bus first");
+        return;
     }
+    
+    const bus = busData[busId] || {};
+    
+    db.collection("emergencyAlerts").add({
+        busId: busId,
+        busName: bus.name || busId,
+        alertType: alertType,
+        timestamp: new Date().toISOString(),
+        handled: false
+    }).then(() => {
+        showToast("Emergency alert sent!");
+    }).catch(error => {
+        console.error("Error sending emergency alert:", error);
+        showToast("Error sending emergency alert");
+    });
 }
 
 function showEmergencyAlert(alert) {
-    try {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = 'emergency-alert';
-        alertDiv.innerHTML = `
-            <h3>🚨 Emergency Alert</h3>
-            <p>Bus: ${alert.busId}</p>
-            <p>Type: ${alert.alertType}</p>
-            <p>Time: ${new Date(alert.timestamp).toLocaleTimeString()}</p>
-            <button onclick="acknowledgeAlert('${alert.id}')">Acknowledge</button>
-        `;
-        
-        document.body.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            if (alertDiv.parentNode) {
-                alertDiv.parentNode.removeChild(alertDiv);
-            }
-        }, 30000);
-    } catch (error) {
-        console.error("Error showing emergency alert:", error);
+    // Create alert element
+    const alertElement = document.createElement('div');
+    alertElement.className = 'emergency-alert';
+    alertElement.innerHTML = `
+        <div class="alert-header">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>EMERGENCY ALERT</h3>
+            <button class="dismiss-alert">&times;</button>
+        </div>
+        <div class="alert-content">
+            <p><strong>Bus:</strong> ${alert.busName}</p>
+            <p><strong>Type:</strong> ${alert.alertType}</p>
+            <p><strong>Time:</strong> ${new Date(alert.timestamp).toLocaleTimeString()}</p>
+        </div>
+    `;
+    
+    // Add to alerts container
+    const alertsContainer = document.getElementById('emergency-alerts');
+    if (alertsContainer) {
+        alertsContainer.appendChild(alertElement);
     }
-}
-
-function acknowledgeAlert(alertId) {
-    try {
-        db.collection("emergencyAlerts").doc(alertId).update({
-            status: "acknowledged"
+    
+    // Add dismiss functionality
+    const dismissBtn = alertElement.querySelector('.dismiss-alert');
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', () => {
+            alertElement.remove();
         });
-        
-        const alertDiv = document.querySelector('.emergency-alert');
-        if (alertDiv) {
-            alertDiv.remove();
+    }
+    
+    // Auto-dismiss after 10 seconds
+    setTimeout(() => {
+        if (alertElement.parentNode) {
+            alertElement.remove();
         }
-    } catch (error) {
-        console.error("Error acknowledging alert:", error);
-        showToast("Error acknowledging alert");
-    }
+    }, 10000);
+    
+    // Also show as toast
+    showToast(`EMERGENCY: ${alert.busName} - ${alert.alertType}`, 5000);
 }
 
-// ==================== Utility Functions ====================
-function showToast(message, duration = 3000) {
-    try {
-        const toast = document.getElementById('toast');
-        const toastMessage = document.getElementById('toast-message');
-        
-        if (!toast || !toastMessage) {
-            // Create a fallback toast if the elements don't exist
-            const fallbackToast = document.createElement('div');
-            fallbackToast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #323232; color: white; padding: 10px 15px; border-radius: 4px; z-index: 10000;';
-            fallbackToast.textContent = message;
-            document.body.appendChild(fallbackToast);
-            
-            setTimeout(() => {
-                document.body.removeChild(fallbackToast);
-            }, duration);
-            return;
-        }
-        
-        toastMessage.textContent = message;
-        toast.classList.add('show');
-        
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, duration);
-    } catch (error) {
-        console.error("Error showing toast:", error);
-    }
-}
-
-// Get bus history for a specific bus
-async function getBusHistory(busId, limit = 10) {
-    try {
-        const historyRef = db.collection("busHistory")
-            .where("busId", "==", busId)
-            .orderBy("timestamp", "desc")
-            .limit(limit);
-        
-        const snapshot = await historyRef.get();
-        const history = [];
-        
-        snapshot.forEach(doc => {
-            history.push(doc.data());
-        });
-        
-        return history;
-    } catch (error) {
-        console.error("Error getting bus history:", error);
-        return [];
-    }
-}
-
-// Make acknowledgeAlert function globally accessible
-window.acknowledgeAlert = acknowledgeAlert;
-
-// ==================== Initialize App ====================
+// Initialize the app when the page loads
 document.addEventListener('DOMContentLoaded', init);
