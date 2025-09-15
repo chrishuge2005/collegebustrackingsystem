@@ -543,7 +543,7 @@ function startDriverTracking() {
         position => {
             const { latitude, longitude } = position.coords;
             
-            // Update user marker
+            // Update user marker to bus symbol for driver
             if (userMarker) {
                 map.removeLayer(userMarker);
                 if (accuracyCircle) map.removeLayer(accuracyCircle);
@@ -551,12 +551,12 @@ function startDriverTracking() {
             
             userMarker = L.marker([latitude, longitude], {
                 icon: L.divIcon({
-                    className: 'user-marker',
-                    html: '<i class="fas fa-user"></i>',
+                    className: 'bus-marker active',
+                    html: '<i class="fas fa-bus"></i>',
                     iconSize: [30, 30],
                     iconAnchor: [15, 15]
                 })
-            }).addTo(map).bindPopup("Your Location (Bus)").openPopup();
+            }).addTo(map).bindPopup("Your Bus Location").openPopup();
             
             accuracyCircle = L.circle([latitude, longitude], {
                 radius: position.coords.accuracy,
